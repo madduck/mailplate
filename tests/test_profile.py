@@ -118,6 +118,27 @@ class TestLoadProfile:
         assert profile.rules == []
         assert profile.headers == {}
 
+    def test_non_matching_lines_in_sections(self, tmp_path: Path) -> None:
+        """Lines that don't match any pattern in a section are ignored."""
+        content = """[profile]
+name = Test
+extra_line_ignored
+
+[rules]
+header = From:.*@example\\.com
+bogus_line
+
+[headers]
+X-Custom = value
+another_bogus
+"""
+        path = tmp_path / "test.mplt"
+        path.write_text(content, encoding="utf-8")
+        profile = load_profile(path)
+        assert profile.name == "Test"
+        assert len(profile.rules) == 1
+        assert profile.headers == {"X-Custom": "value"}
+
     def test_full_profile(self, tmp_path: Path) -> None:
         """A profile with all sections can be loaded."""
         content = """[profile]

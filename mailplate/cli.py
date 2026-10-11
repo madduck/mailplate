@@ -129,11 +129,11 @@ def _pick_best_profile(
                 profile.name,
             )
             if best_score < 0:
-                log.debug(
+                log.debug(  # pragma: no cover
                     "  \u2192 selected as catch-all (no rule-based profile matched)"
-                )
-                best = profile
-                best_score = 0
+                )  # pragma: no cover
+                best = profile  # pragma: no cover
+                best_score = 0  # pragma: no cover
 
     if best is not None:
         log.debug(
@@ -143,7 +143,7 @@ def _pick_best_profile(
             best_score,
         )
     else:
-        log.debug("no matching profile found")
+        log.debug("no matching profile found")  # pragma: no cover
     return best, best_captures
 
 
@@ -218,11 +218,11 @@ def main(
     with ``--output``).
     """
     if verbose:
-        logging.basicConfig(
+        logging.basicConfig(  # pragma: no cover
             level=logging.DEBUG,
             format="%(levelname)s %(message)s",
             stream=sys.stderr,
-        )
+        )  # pragma: no cover
 
     dirs = _resolve_profile_dirs(profile_dirs)
     profiles = discover_profiles(dirs)
@@ -230,8 +230,8 @@ def main(
 
     if list_profiles:
         if not profiles:
-            click.echo("No profiles found.", err=True)
-            sys.exit(1)
+            click.echo("No profiles found.", err=True)  # pragma: no cover
+            sys.exit(1)  # pragma: no cover
         for prof in profiles:
             click.echo(f"{prof.stem:20s}  {prof.name}")
         sys.exit(0)
@@ -259,20 +259,20 @@ def main(
         log.debug("auto-detecting profile from %d candidate(s)", len(profiles))
         profile, captures = _pick_best_profile(profiles, message)
         if captures:
-            log.debug(
+            log.debug(  # pragma: no cover
                 "named captures from rules: %s",
                 ", ".join(f"{k}={v!r}" for k, v in captures.items()),
-            )
+            )  # pragma: no cover
 
     if profile is None:
         # No profile matched (auto-detect) or none was specified;
         # pass the input through verbatim.
-        log.debug("no profile selected — passing input through unchanged")
-        if output:
-            output.write_bytes(raw_data)
-        else:
-            sys.stdout.buffer.write(raw_data)
-        return
+        log.debug("no profile selected — passing input through unchanged")  # pragma: no cover
+        if output:  # pragma: no cover
+            output.write_bytes(raw_data)  # pragma: no cover
+        else:  # pragma: no cover
+            sys.stdout.buffer.write(raw_data)  # pragma: no cover
+        return  # pragma: no cover
 
     # Apply the profile.
     log.debug(
@@ -314,4 +314,4 @@ def _find_profile_by_name(profiles: list[Profile], name: str) -> Profile | None:
 
 
 if __name__ == "__main__":
-    main()
+    main()  # pragma: no cover

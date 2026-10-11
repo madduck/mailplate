@@ -257,3 +257,42 @@ X-Profile = personal
         assert result.exit_code == 0
         assert b"X-Profile: work" in result.stdout_bytes
         assert b"X-Profile: personal" not in result.stdout_bytes
+
+    def test_verbose_no_profile_match(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+        """Verbose output shows catch-all selection and scoring."""
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        non_matching = """[profile]
+name = Nomatch
+
+[rules]
+header = X-Custom: will-never-match
+"""
+        (profile_dir / "nomatch.mplt").write_text(non_matching, encoding="utf-8")
+        email = b"From: alice@other.com\r\n\r\nHello\r\n"
+        result = cli_runner.invoke(
+            main,
+            args=["--verbose", "--profile-dir", str(profile_dir)],
+            input=email,
+        )
+        assert result.exit_code == 0
+        assert "evaluating" in result.output
+        assert "score" in result.output
+
+    def test_explicit_profile_verbose(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+        """Verbose output with an explicit profile."""
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "test.mplt").write_text(
+            "[profile]\nname = Test\n\n[headers]\nX-Foo = bar\n",
+            encoding="utf-8",
+        )
+        email = b"Subject: Hi\r\n\r\nBody\r\n"
+        result = cli_runner.invoke(
+            main,
+            args=["--verbose", "--profile", "test", "--profile-dir", str(profile_dir)],
+            input=email,
+        )
+        assert result.exit_code == 0
+        assert "explicit profile" in result.output.lower()
+        assert "applying profile" in result.output.lower()

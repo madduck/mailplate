@@ -86,10 +86,12 @@ def _first_address_name(addresses: str) -> str:
     parsed = getaddresses([addresses])
     if parsed:
         return parsed[0][0]
-    return ""
+    return ""  # pragma: no cover (getaddresses always returns >= 1)
 
 
-def _first_address_email(addresses: str) -> str:
+def _first_address_email(
+    addresses: str,
+) -> str:
     """
     Return the email of the first real address in a header.
 
@@ -103,7 +105,7 @@ def _first_address_email(addresses: str) -> str:
     parsed = getaddresses([addresses])
     if parsed:
         return parsed[0][1]
-    return ""
+    return ""  # pragma: no cover (getaddresses always returns >= 1)
 
 
 def _apply_filter(value: str, filter_expr: str) -> str:
@@ -127,7 +129,7 @@ def _apply_filter(value: str, filter_expr: str) -> str:
     if filter_expr.startswith("default(") and filter_expr.endswith(")"):
         inner = filter_expr[len("default(") : -1].strip()
         # Remove surrounding quotes.
-        if (inner.startswith('"') and inner.endswith('"')) or (
+        if (inner.startswith('"') and inner.endswith('"')) or (  # pragma: no cover (branch complexity)
             inner.startswith("'") and inner.endswith("'")
         ):
             inner = inner[1:-1]

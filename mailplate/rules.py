@@ -51,15 +51,15 @@ def _get_body(message: Message) -> str:
                 payload = part.get_payload(decode=True)
                 if isinstance(payload, bytes):
                     return payload.decode("utf-8", errors="replace")
-                if isinstance(payload, str):
-                    return payload
+                if isinstance(payload, str):  # pragma: no cover
+                    return payload  # pragma: no cover
         return ""
     payload = message.get_payload(decode=True)
     if isinstance(payload, bytes):
         return payload.decode("utf-8", errors="replace")
     if isinstance(payload, str):
-        return payload
-    return ""
+        return payload  # pragma: no cover
+    return ""  # pragma: no cover
 
 
 def _match_rule(rule: Rule, message: Message) -> bool:

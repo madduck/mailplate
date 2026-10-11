@@ -258,5 +258,23 @@ class TestMatchRuleCaptures:
         result = _match_rule_captures(rule, msg)
         assert result == {}
 
+    def test_body_no_match_capture(self) -> None:
+        """A non-matching body rule returns an empty dict."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="body", value="(?P<word>urgent)")
+        msg = self._make_message({}, "nothing")
+        result = _match_rule_captures(rule, msg)
+        assert result == {}
+
+    def test_body_invalid_regex_capture(self) -> None:
+        """An invalid body regex returns an empty dict."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="body", value="**[invalid")
+        msg = self._make_message({}, "body")
+        result = _match_rule_captures(rule, msg)
+        assert result == {}
+
 
 from pathlib import Path
