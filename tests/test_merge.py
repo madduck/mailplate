@@ -389,6 +389,23 @@ class TestMergeProfile:
         assert "X-Old" not in result
         assert "X-Obsolete" not in result
 
+    def test_header_value_template(self) -> None:
+        """Header values are rendered through the template engine."""
+        msg = self._make_message(
+            {"Subject": "Hello World", "From": "alice@example.com"},
+        )
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            headers={
+                "X-Orig-Subject": "{{ subject }}",
+                "X-From-Domain": "{{ header:From }}",
+            },
+        )
+        result = merge_profile(msg, profile)
+        assert result["X-Orig-Subject"] == "Hello World"
+        assert result["X-From-Domain"] == "alice@example.com"
+
     def test_body_is_replaced(self) -> None:
         """The body is replaced with greeting + body + closing + signature."""
         msg = self._make_message({}, "Original body")

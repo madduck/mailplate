@@ -100,8 +100,11 @@ My Company Inc.
 `[headers]`
 :   Header definitions. Each line is `Header‑Name = value`.
     Existing headers with the same name (case‑insensitive) are
-    replaced.  Template placeholders are **not** expanded in header
-    values.
+    replaced. Template placeholders (see below) are expanded.
+
+    Header values can reference other headers via
+    ``{{ header:<Name> }}`` and the ``{{ subject }}``, ``{{ from }}``,
+    etc. shorthand variables.
 
 `[greeting]`
 :   Lines inserted before the original body. A blank line between

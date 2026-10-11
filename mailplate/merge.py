@@ -240,14 +240,17 @@ def merge_profile(message: Message, profile: Profile) -> Message:
     # Deep-copy so we don't mutate the original.
     result: Message = copy.deepcopy(message)
 
-    # 1. Set/override headers from the profile.
+    # 1. Set/override headers from the profile.  Header values are
+    #    rendered through the template engine so that placeholders
+    #    like {{ subject }} or {{ header:X-Custom }} are expanded.
     for hdr_name, hdr_value in profile.headers.items():
+        rendered = render_template(hdr_value, message)
         keys_to_replace: list[str] = [
             key for key in result if key.lower() == hdr_name.lower()
         ]
         for key in keys_to_replace:
             del result[key]
-        result[hdr_name] = hdr_value
+        result[hdr_name] = rendered
 
     # 1b. Remove headers listed in the profile.
     for rm_name in profile.remove_headers:
