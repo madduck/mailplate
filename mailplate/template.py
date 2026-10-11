@@ -44,7 +44,9 @@ from __future__ import annotations
 import os
 import re
 import shlex
-import subprocess
+
+# nosec: B404 — it is safe to use subprocess as commands are all user-supplied
+import subprocess  # nosec: B404
 from email.message import Message
 from email.utils import getaddresses, parseaddr
 from typing import Any
