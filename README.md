@@ -106,6 +106,15 @@ My Company Inc.
     The profile with the highest total score wins. Use weights to make
     some rules more important than others during auto-detection.
 
+    Named capture groups in a rule&#8217;s regexp become template
+    variables under the ``rule:`` namespace.  For example::
+
+        [rules]
+        header = From:.*@(?P&lt;domain&gt;[a-z0-9.]+)
+
+    makes ``{{ rule:domain }}`` available in greeting, closing,
+    signature, and header values.
+
 `[headers]`
 :   Header definitions. Each line is `Header‑Name = value`.
     Existing headers with the same name (case‑insensitive) are
@@ -154,20 +163,21 @@ closing lines.
 
 ## Template variables
 
-| Variable | Description |
-| ---------- | ------------- |
-| `{{ body }}` | Original plain‑text body |
-| `{{ from }}` | Full `From` header value |
-| `{{ from_name }}` | Display‑name part of `From` |
-| `{{ from_email }}` | Email‑address part of `From` |
-| `{{ to }}` | Full `To` header value |
-| `{{ to_name }}` | Display‑name part of the first `To` address |
-| `{{ to_email }}` | Email‑address part of the first `To` address |
-| `{{ subject }}` | `Subject` header value |
-| `{{ date }}` | `Date` header value |
-| `{{ header:<Name> }}` | Value of an arbitrary header |
-| `{{ env:<VAR> }}` | Value of an environment variable |
-| `{{ helper:<name> }}` | Output of a helper command defined in ``[helpers]`` (commit ``044096e``) |
+| Variable              | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `{{ body }}`          | Original plain‑text body                            |
+| `{{ from }}`          | Full `From` header value                            |
+| `{{ from_name }}`     | Display‑name part of `From`                         |
+| `{{ from_email }}`    | Email‑address part of `From`                        |
+| `{{ to }}`            | Full `To` header value                              |
+| `{{ to_name }}`       | Display‑name part of the first `To` address         |
+| `{{ to_email }}`      | Email‑address part of the first `To` address        |
+| `{{ subject }}`       | `Subject` header value                              |
+| `{{ date }}`          | `Date` header value                                 |
+| `{{ header:<Name> }}` | Value of an arbitrary header                        |
+| `{{ env:<VAR> }}`     | Value of an environment variable                    |
+| `{{ helper:<name> }}` | Output of a helper command defined in ``[helpers]`` |
+| `{{ rule:<capture> }}` | Named regexp group from a matching rule              |
 
 ### Filters
 

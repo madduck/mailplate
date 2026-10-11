@@ -30,7 +30,7 @@ import click
 from . import VERSION
 from .merge import merge_profile, parse_email, serialize_email
 from .profile import Profile, Rule, discover_profiles
-from .rules import _match_rule
+from .rules import _match_rule, _match_rule_captures
 
 log = logging.getLogger(__name__)
 
@@ -65,37 +65,47 @@ def _resolve_profile_dirs(extra: tuple[Path, ...] | None) -> list[Path]:
     return dirs
 
 
-def _pick_best_profile(profiles: list[Profile], message: Message) -> Profile | None:
+def _pick_best_profile(
+    profiles: list[Profile], message: Message
+) -> tuple[Profile | None, dict[str, str]]:
     """
     Pick the best matching profile for a message.
 
-    The "best" profile is the one with the most matching rules.  If
-    multiple profiles have the same number of matches, the first one
-    encountered (by discovery order) wins.
+    The "best" profile is the one with the highest total score (sum of
+    matching rule weights).  If multiple profiles have the same score,
+    the first one encountered (by discovery order) wins.
+
+    Alongside the chosen profile, any named capture groups from the
+    winning profile's matching rules are returned as a flat dict.
 
     Args:
         profiles: List of available profiles.
         message: The parsed email message.
 
     Returns:
-        The best matching profile, or ``None`` if none match.
+        A ``(profile, captures)`` pair.  *profile* is ``None`` if no
+        profile matches; *captures* is empty in that case or when the
+        winner has no named groups in its rules.
 
     """
     best: Profile | None = None
     best_score = -1
+    best_captures: dict[str, str] = {}
 
     log.debug("evaluating %d profiles for auto-detection", len(profiles))
     for profile in profiles:
         if profile.rules:
             details: list[str] = []
             score = 0
+            captures: dict[str, str] = {}
             for rule in profile.rules:
                 matched = _match_rule_for_scoring(rule, message)
                 if matched:
                     score += rule.weight
-                    details.append(f"  ✔ {rule.kind} = {rule.value}")
+                    details.append(f"  \u2714 {rule.kind} = {rule.value}")
+                    captures.update(_match_rule_captures(rule, message))
                 else:
-                    details.append(f"  ✘ {rule.kind} = {rule.value}")
+                    details.append(f"  \u2718 {rule.kind} = {rule.value}")
             log.debug(
                 "profile %r (%s): score %d/%d\n%s",
                 profile.stem,
@@ -106,11 +116,12 @@ def _pick_best_profile(profiles: list[Profile], message: Message) -> Profile | N
             )
             if score > best_score:
                 log.debug(
-                    "  → new best (previous best was %s)",
+                    "  \u2192 new best (previous best was %s)",
                     best_score if best_score >= 0 else "none",
                 )
                 best = profile
                 best_score = score
+                best_captures = captures
         else:
             log.debug(
                 "profile %r (%s): no rules (catch-all, score 0)",
@@ -118,7 +129,9 @@ def _pick_best_profile(profiles: list[Profile], message: Message) -> Profile | N
                 profile.name,
             )
             if best_score < 0:
-                log.debug("  → selected as catch-all (no rule-based profile matched)")
+                log.debug(
+                    "  \u2192 selected as catch-all (no rule-based profile matched)"
+                )
                 best = profile
                 best_score = 0
 
@@ -131,7 +144,7 @@ def _pick_best_profile(profiles: list[Profile], message: Message) -> Profile | N
         )
     else:
         log.debug("no matching profile found")
-    return best
+    return best, best_captures
 
 
 def _match_rule_for_scoring(rule: Rule, message: Message) -> bool:
@@ -240,10 +253,16 @@ def main(
             click.echo(f"Error: profile {profile_name!r} not found.", err=True)
             sys.exit(1)
         log.debug("explicit profile: %r (%s)", profile.stem, profile.name)
+        captures: dict[str, str] = {}
     else:
         # Auto-detect the best profile.
         log.debug("auto-detecting profile from %d candidate(s)", len(profiles))
-        profile = _pick_best_profile(profiles, message)
+        profile, captures = _pick_best_profile(profiles, message)
+        if captures:
+            log.debug(
+                "named captures from rules: %s",
+                ", ".join(f"{k}={v!r}" for k, v in captures.items()),
+            )
 
     if profile is None:
         # No profile matched (auto-detect) or none was specified;
@@ -265,7 +284,7 @@ def main(
         "yes" if profile.closing else "no",
         "yes" if profile.signature else "no",
     )
-    result = merge_profile(message, profile)
+    result = merge_profile(message, profile, captures)
     serialized = serialize_email(result)
 
     if output:

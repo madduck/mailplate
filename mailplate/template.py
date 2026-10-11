@@ -30,6 +30,8 @@ available:
 ``{{ helper:<name> }}``
     Invoke a helper command defined in the profile's ``[helpers]``
     section and insert its stdout.
+``{{ rule:<name> }}``
+    Named capture group from a matching rule's regexp.
 
 Filters can be chained with the pipe (``|``) syntax:
 
@@ -173,8 +175,8 @@ def _get_variable(name: str, context: dict[str, Any]) -> str:
     """
     Look up a variable in the context.
 
-    Supports the ``header:<name>``, ``env:<var>``, and
-    ``helper:<name>`` namespaced variables.
+    Supports the ``header:<name>``, ``env:<var>``,
+    ``helper:<name>``, and ``rule:<name>`` namespaced variables.
 
     Args:
         name: The variable name.
@@ -198,6 +200,10 @@ def _get_variable(name: str, context: dict[str, Any]) -> str:
         if command is None:
             return f"[unknown helper: {helper_name}]"
         return _run_helper(command)
+    if name.startswith("rule:"):
+        capture_name = name[len("rule:") :]
+        captures = context.get("_captures", {})
+        return captures.get(capture_name, "")  # type: ignore[no-any-return]
     return str(context.get(name, ""))
 
 
@@ -205,6 +211,7 @@ def render_template(
     template: str,
     message: Message,
     helpers: dict[str, str] | None = None,
+    captures: dict[str, str] | None = None,
 ) -> str:
     """
     Render a template string against a parsed email message.
@@ -213,6 +220,8 @@ def render_template(
         template: The template text with ``{{ variable }}`` placeholders.
         message: The parsed email to extract data from.
         helpers: Optional mapping of helper names to commands.
+        captures: Named capture groups from matching rules, injected
+            as top-level context variables.
 
     Returns:
         The rendered string.
@@ -243,6 +252,7 @@ def render_template(
         "date": message.get("Date", ""),
         "_headers": all_headers,
         "_helpers": helpers or {},
+        "_captures": captures or {},
     }
 
     def _replacer(match: re.Match[str]) -> str:

@@ -95,6 +95,46 @@ def _match_rule(rule: Rule, message: Message) -> bool:
         return False
 
 
+def _match_rule_captures(rule: Rule, message: Message) -> dict[str, str]:
+    """
+    Match a rule and return any named capture groups.
+
+    The returned dict maps group name to the captured substring
+    (or ``""`` if the rule does not match or has no named groups).
+
+    Args:
+        rule: The rule to evaluate.
+        message: The parsed email message.
+
+    Returns:
+        A dict of named captures.  Empty if the rule doesn't match.
+
+    """
+    if rule.kind == "header":
+        colon_pos = rule.value.find(":")
+        if colon_pos == -1:
+            return {}
+        header_name = rule.value[:colon_pos].strip()
+        regex_str = rule.value[colon_pos + 1 :].strip()
+        value = _get_header_value(message, header_name)
+        try:
+            m = re.search(regex_str, value)
+        except re.error:
+            return {}
+        if not m:
+            return {}
+        return {k: v for k, v in m.groupdict().items() if v is not None}
+
+    body = _get_body(message)
+    try:
+        m = re.search(rule.value, body)
+    except re.error:
+        return {}
+    if not m:
+        return {}
+    return {k: v for k, v in m.groupdict().items() if v is not None}
+
+
 def profile_matches(profile: Profile, message: Message) -> bool:
     """
     Check whether a profile's rules all match the given message.

@@ -109,7 +109,9 @@ def _split_body_signature(text: str) -> tuple[str, str]:
     return body, signature
 
 
-def _build_new_body(message: Message, profile: Profile) -> str:
+def _build_new_body(
+    message: Message, profile: Profile, captures: dict[str, str] | None = None
+) -> str:
     """
     Build the new body from a profile's greeting, closing, and signature.
 
@@ -129,6 +131,8 @@ def _build_new_body(message: Message, profile: Profile) -> str:
     Args:
         message: The original parsed email.
         profile: The profile to apply.
+        captures: Named capture groups from matching rules, injected
+            into the template context.
 
     Returns:
         The reconstructed body string.
@@ -143,17 +147,19 @@ def _build_new_body(message: Message, profile: Profile) -> str:
     sig_text = "\n".join(profile.signature)
 
     rendered_greeting = (
-        render_template(greeting_text, message, profile.helpers)
+        render_template(greeting_text, message, profile.helpers, captures=captures)
         if profile.greeting
         else ""
     )
     rendered_closing = (
-        render_template(closing_text, message, profile.helpers)
+        render_template(closing_text, message, profile.helpers, captures=captures)
         if profile.closing
         else ""
     )
     rendered_sig = (
-        render_template(sig_text, message, profile.helpers) if profile.signature else ""
+        render_template(sig_text, message, profile.helpers, captures=captures)
+        if profile.signature
+        else ""
     )
 
     # --- idempotent strip ---
@@ -226,7 +232,9 @@ def _strip_mime_headers(message: Message) -> None:
             del message[key]
 
 
-def merge_profile(message: Message, profile: Profile) -> Message:
+def merge_profile(
+    message: Message, profile: Profile, captures: dict[str, str] | None = None
+) -> Message:
     """
     Apply a profile to an email message and return a new message.
 
@@ -235,6 +243,8 @@ def merge_profile(message: Message, profile: Profile) -> Message:
     Args:
         message: The original parsed email.
         profile: The profile to apply.
+        captures: Named capture groups from matching rules, injected
+            into the template context.
 
     Returns:
         A new :class:`Message` with the profile applied.
@@ -252,8 +262,11 @@ def merge_profile(message: Message, profile: Profile) -> Message:
     #    rendered through the template engine so that placeholders
     #    like {{ subject }}, {{ header:X-Custom }}, or
     #    {{ helper:get_quote }} are expanded.
+    captures = captures or {}
     for hdr_name, hdr_value in profile.headers.items():
-        rendered = render_template(hdr_value, message, profile.helpers)
+        rendered = render_template(
+            hdr_value, message, profile.helpers, captures=captures
+        )
         keys_to_replace: list[str] = [
             key for key in result if key.lower() == hdr_name.lower()
         ]
@@ -271,7 +284,7 @@ def merge_profile(message: Message, profile: Profile) -> Message:
 
     # 2. Build the new body and set it as UTF-8 bytes so that
     #    compat32 serialisation does not force ASCII encoding.
-    new_body = _build_new_body(result, profile)
+    new_body = _build_new_body(result, profile, captures)
     result.set_payload(new_body.encode("utf-8"))
 
     # 3. Strip MIME headers so the output is a plain RFC5322 message.
