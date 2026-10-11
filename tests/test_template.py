@@ -145,6 +145,17 @@ class TestGetVariable:
         result = _get_variable("env:NONEXISTENT_VAR", {})
         assert result == ""
 
+    def test_helper_variable_unknown(self) -> None:
+        """An unknown helper returns an error message."""
+        result = _get_variable("helper:undefined", {"_helpers": {}})
+        assert "unknown helper" in result
+
+    def test_helper_variable_runs_command(self) -> None:
+        """A known helper runs the command and returns its stdout."""
+        helpers = {"say_hi": "echo hello"}
+        result = _get_variable("helper:say_hi", {"_helpers": helpers})
+        assert result == "hello"
+
 
 class TestRenderTemplate:
     """Tests for render_template."""
@@ -244,3 +255,10 @@ class TestRenderTemplate:
         msg = self._make_message({"X-Custom": "custom_value"})
         result = render_template("{{ header:X-Custom }}", msg)
         assert result == "custom_value"
+
+    def test_helper_placeholder(self) -> None:
+        """The helper: placeholder invokes a command."""
+        msg = self._make_message({})
+        helpers = {"ping": "echo pong"}
+        result = render_template("{{ helper:ping }}", msg, helpers)
+        assert result == "pong"

@@ -27,6 +27,9 @@ available:
     The value of any arbitrary header named ``<name>``.
 ``{{ env:<var> }}``
     The value of the environment variable ``<var>``.
+``{{ helper:<name> }}``
+    Invoke a helper command defined in the profile's ``[helpers]``
+    section and insert its stdout.
 
 Filters can be chained with the pipe (``|``) syntax:
 
@@ -38,11 +41,16 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
+import subprocess
 from email.message import Message
 from email.utils import getaddresses, parseaddr
 from typing import Any
 
 from .rules import _get_body
+
+#: Maximum time (seconds) a helper command may run before being killed.
+_HELPER_TIMEOUT = 5.0
 
 
 def _extract_name_and_email(address: str) -> tuple[str, str]:
@@ -129,11 +137,44 @@ _PLACEHOLDER_RE = re.compile(
 )
 
 
+def _run_helper(command: str) -> str:
+    """
+    Execute a helper command and return its stdout.
+
+    The command string is split with :func:`shlex.split` to avoid
+    shell injection.  If the command exits with a non-zero status,
+    times out, or cannot be run, an error message is returned instead
+    so that rendering can continue.
+
+    Args:
+        command: The command line to run (e.g. ``fortune -n2``).
+
+    Returns:
+        The stripped stdout of the command.
+
+    """
+    try:
+        args = shlex.split(command)
+        result = subprocess.run(
+            args,
+            check=False,
+            capture_output=True,
+            timeout=_HELPER_TIMEOUT,
+            text=True,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"[helper error: {exc}]"
+    if result.returncode != 0:
+        return f"[helper exited with status {result.returncode}]"
+    return result.stdout.rstrip("\n")
+
+
 def _get_variable(name: str, context: dict[str, Any]) -> str:
     """
     Look up a variable in the context.
 
-    Supports the ``header:<name>`` and ``env:<var>`` namespaced variables.
+    Supports the ``header:<name>``, ``env:<var>``, and
+    ``helper:<name>`` namespaced variables.
 
     Args:
         name: The variable name.
@@ -150,16 +191,28 @@ def _get_variable(name: str, context: dict[str, Any]) -> str:
         var_name = name[len("env:") :]
         val = os.environ.get(var_name)
         return val if val is not None else ""
+    if name.startswith("helper:"):
+        helper_name = name[len("helper:") :]
+        helpers = context.get("_helpers", {})
+        command = helpers.get(helper_name)
+        if command is None:
+            return f"[unknown helper: {helper_name}]"
+        return _run_helper(command)
     return str(context.get(name, ""))
 
 
-def render_template(template: str, message: Message) -> str:
+def render_template(
+    template: str,
+    message: Message,
+    helpers: dict[str, str] | None = None,
+) -> str:
     """
     Render a template string against a parsed email message.
 
     Args:
         template: The template text with ``{{ variable }}`` placeholders.
         message: The parsed email to extract data from.
+        helpers: Optional mapping of helper names to commands.
 
     Returns:
         The rendered string.
@@ -189,6 +242,7 @@ def render_template(template: str, message: Message) -> str:
         "subject": message.get("Subject", ""),
         "date": message.get("Date", ""),
         "_headers": all_headers,
+        "_helpers": helpers or {},
     }
 
     def _replacer(match: re.Match[str]) -> str:

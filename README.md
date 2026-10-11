@@ -123,6 +123,16 @@ My Company Inc.
 :   One header name per line; matching headers (case‑insensitive) are
     deleted from the output. Takes effect after ``[headers]`` have been set.
 
+`[helpers]`
+:   External command definitions. Each line is ``name = shell command``.
+    The command is invoked with :func:`shlex.split` and :func:`subprocess.run`
+    with a 5‑second timeout. Use ``{{ helper:<name> }}`` in template
+    sections to insert the command&#8217;s stdout::
+
+        [helpers]
+        get_quote    = fortune -n2
+        get_long_date = date '+%d %B %Y'
+
 Comments start with `#` and blank lines are ignored.
 
 ### Idempotency
@@ -148,6 +158,7 @@ closing lines.
 | `{{ date }}` | `Date` header value |
 | `{{ header:<Name> }}` | Value of an arbitrary header |
 | `{{ env:<VAR> }}` | Value of an environment variable |
+| `{{ helper:<name> }}` | Output of a helper command defined in ``[helpers]`` (commit ``044096e``) |
 
 ### Filters
 

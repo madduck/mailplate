@@ -158,6 +158,23 @@ Old-Header
         profile = load_profile(path)
         assert profile.remove_headers == ["X-NoProxy", "Old-Header"]
 
+    def test_helpers_section(self, tmp_path: Path) -> None:
+        """The ``[helpers]`` section is parsed."""
+        content = """[profile]
+name = Test
+
+[helpers]
+get_quote = fortune -n2
+get_long_date = date '+%%d %%B %%Y'
+"""
+        path = tmp_path / "test.mplt"
+        path.write_text(content, encoding="utf-8")
+        profile = load_profile(path)
+        assert profile.helpers == {
+            "get_quote": "fortune -n2",
+            "get_long_date": "date '+%%d %%B %%Y'",
+        }
+
     def test_comments_and_blanks(self, tmp_path: Path) -> None:
         """Comments and blank lines are ignored."""
         content = """# This is a comment

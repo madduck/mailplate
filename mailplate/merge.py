@@ -143,10 +143,18 @@ def _build_new_body(message: Message, profile: Profile) -> str:
     sig_text = "\n".join(profile.signature)
 
     rendered_greeting = (
-        render_template(greeting_text, message) if profile.greeting else ""
+        render_template(greeting_text, message, profile.helpers)
+        if profile.greeting
+        else ""
     )
-    rendered_closing = render_template(closing_text, message) if profile.closing else ""
-    rendered_sig = render_template(sig_text, message) if profile.signature else ""
+    rendered_closing = (
+        render_template(closing_text, message, profile.helpers)
+        if profile.closing
+        else ""
+    )
+    rendered_sig = (
+        render_template(sig_text, message, profile.helpers) if profile.signature else ""
+    )
 
     # --- idempotent strip ---
     # Remove greeting from the start of the body if it is already there.
@@ -242,9 +250,10 @@ def merge_profile(message: Message, profile: Profile) -> Message:
 
     # 1. Set/override headers from the profile.  Header values are
     #    rendered through the template engine so that placeholders
-    #    like {{ subject }} or {{ header:X-Custom }} are expanded.
+    #    like {{ subject }}, {{ header:X-Custom }}, or
+    #    {{ helper:get_quote }} are expanded.
     for hdr_name, hdr_value in profile.headers.items():
-        rendered = render_template(hdr_value, message)
+        rendered = render_template(hdr_value, message, profile.helpers)
         keys_to_replace: list[str] = [
             key for key in result if key.lower() == hdr_name.lower()
         ]

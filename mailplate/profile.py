@@ -89,6 +89,7 @@ class Profile:
     rules: list[Rule] = field(default_factory=list)
     headers: dict[str, str] = field(default_factory=dict)
     remove_headers: list[str] = field(default_factory=list)
+    helpers: dict[str, str] = field(default_factory=dict)
     greeting: list[str] = field(default_factory=list)
     closing: list[str] = field(default_factory=list)
     signature: list[str] = field(default_factory=list)
@@ -207,6 +208,10 @@ def _parse_profile(text: str, path: Path) -> Profile:
 
         elif current_section == "remove_headers":
             profile.remove_headers.append(stripped)
+
+        elif current_section == "helpers":
+            name, _, cmd = stripped.partition("=")
+            profile.helpers[name.strip()] = cmd.strip()
 
         elif current_section in ("greeting", "closing", "signature"):
             getattr(profile, current_section).append(stripped)
