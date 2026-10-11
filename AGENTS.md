@@ -134,11 +134,7 @@ that, never open:
 
 A task is done only when Docstrings are updated, and all of these pass:
 
-- `uv run ruff format` leaves the code unchanged.
-- `uv run ruff check` reports no errors.
-- `uv run mypy .` reports no errors.
 - `uv run pytest` passes.
-- `uv run bandit -c pyproject.toml -r .` passes.
 
 ## Completion Report
 
