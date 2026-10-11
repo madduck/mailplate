@@ -91,3 +91,6 @@ exclude_also = [
 
 [tool.bandit]
 exclude_dirs = [".venv"]
+
+[tool.bandit.assert_used]
+skips = ["*/tests/test_*.py"]
