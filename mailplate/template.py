@@ -165,6 +165,7 @@ def _run_helper(command: str) -> str:
             capture_output=True,
             timeout=_HELPER_TIMEOUT,
             text=True,
+            shell=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return f"[helper error: {exc}]"
