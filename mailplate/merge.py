@@ -10,6 +10,7 @@ closing, and signature blocks.
 from __future__ import annotations
 
 import copy
+import re
 from email import policy
 from email.message import Message
 from email.parser import BytesParser
@@ -24,6 +25,10 @@ if TYPE_CHECKING:
 #: Headers that belong to the MIME machinery and are stripped
 #: from the output.
 _MIME_HEADERS = {"mime-version", "content-type", "content-transfer-encoding"}
+
+#: The delimiter that separates the body from the signature
+#: in an email draft (RFC 3676 flavour).
+_SIGNATURE_RE = re.compile(r"^-- $", re.MULTILINE)
 
 
 class NotPlainTextError(ValueError):
@@ -76,6 +81,34 @@ def _strip_suffix(text: str, suffix: str) -> str:
     return text
 
 
+def _split_body_signature(text: str) -> tuple[str, str]:
+    """
+    Split *text* into (body, signature) at ``^-- $``.
+
+    The delimiter line itself is consumed and not included in either
+    part.  If no delimiter is found the entire text is the body and
+    the signature is empty.
+
+    Args:
+        text: The full body text from the email.
+
+    Returns:
+        A ``(body, signature)`` pair.
+
+    """
+    match = _SIGNATURE_RE.search(text)
+    if not match:
+        return text, ""
+    body = text[: match.start()]
+    signature = text[match.end() :]
+    # Strip trailing newline from the body side of the delimiter
+    # so we don't get a double blank line.
+    body = body.removesuffix("\n")
+    # Strip leading newline from the signature side.
+    signature = signature.lstrip("\n")
+    return body, signature
+
+
 def _build_new_body(message: Message, profile: Profile) -> str:
     """
     Build the new body from a profile's greeting, closing, and signature.
@@ -83,17 +116,15 @@ def _build_new_body(message: Message, profile: Profile) -> str:
     The body is constructed as::
 
         [greeting ...]
-        [original body]
+        [body (without signature)]
         [closing ...]
-        [signature ...]
+        --\u00a0 (signature delimiter)
+        [profile signature ...]
 
-    Each section is rendered through the template engine so that
-    ``{{ variable }}`` placeholders are substituted.
-
-    The operation is **idempotent**: if the body already starts with the
-    greeting and/or ends with the closing\u00b1signature block, those are
-    stripped off first so that repeated applications of the same profile
-    do not keep piling on extra decorations.
+    The greeting and closing manipulation is applied **only** to the
+    body part; any signature that was present in the original draft is
+    discarded and replaced by the profile's ``[signature]`` section (if
+    any).
 
     Args:
         message: The original parsed email.
@@ -103,34 +134,25 @@ def _build_new_body(message: Message, profile: Profile) -> str:
         The reconstructed body string.
 
     """
-    body = _get_body_for_merge(message)
+    full_text = _get_body_for_merge(message)
+    body, _draft_sig = _split_body_signature(full_text)
 
     # Each section is a list of lines; we join with newlines and render.
     greeting_text = "\n".join(profile.greeting)
     closing_text = "\n".join(profile.closing)
-    signature_text = "\n".join(profile.signature)
+    sig_text = "\n".join(profile.signature)
 
     rendered_greeting = (
         render_template(greeting_text, message) if profile.greeting else ""
     )
     rendered_closing = render_template(closing_text, message) if profile.closing else ""
-    rendered_signature = (
-        render_template(signature_text, message) if profile.signature else ""
-    )
+    rendered_sig = render_template(sig_text, message) if profile.signature else ""
 
     # --- idempotent strip ---
-    # Remove greeting from the start if it is already there.
+    # Remove greeting from the start of the body if it is already there.
     body = _strip_prefix(body, rendered_greeting)
-
-    # Build the combined suffix that would have been appended
-    # (closing \u00b1 signature) and strip it if present.
-    suffix_parts: list[str] = []
-    if rendered_closing:
-        suffix_parts.append(rendered_closing)
-    if rendered_signature:
-        suffix_parts.append(rendered_signature)
-    combined_suffix = "\n".join(suffix_parts)
-    body = _strip_suffix(body, combined_suffix)
+    # Remove closing from the end of the body if already present.
+    body = _strip_suffix(body, rendered_closing)
 
     # --- reassemble ---
     parts: list[str] = []
@@ -139,10 +161,14 @@ def _build_new_body(message: Message, profile: Profile) -> str:
     parts.append(body)
     if rendered_closing:
         parts.append(rendered_closing)
-    if rendered_signature:
-        parts.append(rendered_signature)
+    out = "\n".join(parts)
 
-    return "\n".join(parts)
+    if rendered_sig:
+        out += "\n-- \n" + rendered_sig
+    elif _draft_sig:
+        out += "\n-- \n" + _draft_sig
+
+    return out
 
 
 def _get_body_for_merge(message: Message) -> str:
@@ -216,8 +242,6 @@ def merge_profile(message: Message, profile: Profile) -> Message:
 
     # 1. Set/override headers from the profile.
     for hdr_name, hdr_value in profile.headers.items():
-        # Remove existing headers with the same name (case-insensitive).
-        # We collect them first to avoid mutation-while-iterating issues.
         keys_to_replace: list[str] = [
             key for key in result if key.lower() == hdr_name.lower()
         ]

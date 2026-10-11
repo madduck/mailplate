@@ -13,6 +13,7 @@ from mailplate.merge import (
     _build_new_body,
     _ensure_plain_text,
     _get_body_for_merge,
+    _split_body_signature,
     _strip_mime_headers,
     _strip_prefix,
     _strip_suffix,
@@ -37,6 +38,32 @@ class TestGetBodyForMerge:
         """An empty body returns an empty string."""
         msg = Message()
         assert _get_body_for_merge(msg) == ""
+
+
+class TestSplitBodySignature:
+    """Tests for _split_body_signature."""
+
+    def test_no_delimiter(self) -> None:
+        """Text without a signature delimiter is returned as body only."""
+        body, sig = _split_body_signature("Hello world")
+        assert body == "Hello world"
+        assert sig == ""
+
+    def test_with_signature(self) -> None:
+        """Text after ``^-- $`` is returned as the signature."""
+        body, sig = _split_body_signature("Body text\n-- \nSig text")
+        assert body == "Body text"
+        assert sig == "Sig text"
+
+    def test_trailing_newline_on_body_side(self) -> None:
+        """Trailing newline on the body side of the delimiter is stripped."""
+        body, _sig = _split_body_signature("Body\n-- \nSig")
+        assert body == "Body"
+
+    def test_leading_newline_on_sig_side(self) -> None:
+        """Leading newlines on the signature side are stripped."""
+        _body, sig = _split_body_signature("Body\n-- \n\n\nSig")
+        assert sig == "Sig"
 
 
 class TestStripPrefix:
@@ -128,13 +155,13 @@ class TestBuildNewBody:
         assert result == "Body text\nBest,\nAlice"
 
     def test_with_signature(self) -> None:
-        """Signature is appended after the closing."""
+        """Signature is appended after the delimiter."""
         profile = Profile(
             name="test", path=Path("test.mplt"), signature=["--", "Alice"]
         )
         msg = self._make_message({}, "Body text")
         result = _build_new_body(msg, profile)
-        assert result == "Body text\n--\nAlice"
+        assert result == "Body text\n-- \n--\nAlice"
 
     def test_all_sections(self) -> None:
         """All sections are combined in order."""
@@ -150,7 +177,7 @@ class TestBuildNewBody:
             "Meeting tomorrow?",
         )
         result = _build_new_body(msg, profile)
-        assert result == "Hi Bob,\nMeeting tomorrow?\nBest,\nAlice"
+        assert result == "Hi Bob,\nMeeting tomorrow?\nBest,\n-- \nAlice"
 
     def test_variable_substitution(self) -> None:
         """Template variables in sections are rendered."""
@@ -174,20 +201,41 @@ class TestBuildNewBody:
         result = _build_new_body(msg, profile)
         assert result == "Hi Bob,\nAlready greeted"
 
-    def test_idempotent_closing_and_signature(self) -> None:
-        """Closing+signature is not added again if the body already ends with it."""
+    def test_idempotent_closing(self) -> None:
+        """Closing is not added again if the body already ends with it."""
         profile = Profile(
             name="test",
             path=Path("test.mplt"),
             closing=["Best,"],
+        )
+        msg = self._make_message(
+            {"From": "Alice <alice@e.com>"},
+            "Some text\nBest,",
+        )
+        result = _build_new_body(msg, profile)
+        assert result == "Some text\nBest,"
+
+    def test_idempotent_signature(self) -> None:
+        """Signature is always replaced by the profile's, never duplicated."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
             signature=["{{ from_name }}"],
         )
         msg = self._make_message(
             {"From": "Alice <alice@e.com>"},
-            "Some text\nBest,\nAlice",
+            "Body\n-- \nOld sig",
         )
         result = _build_new_body(msg, profile)
-        assert result == "Some text\nBest,\nAlice"
+        assert result == "Body\n-- \nAlice"
+
+    def test_draft_signature_preserved_if_profile_has_none(self) -> None:
+        """When the profile has no signature section, the draft's signature
+        is preserved."""
+        profile = Profile(name="test", path=Path("test.mplt"))
+        msg = self._make_message({}, "Body\n-- \nDraft sig")
+        result = _build_new_body(msg, profile)
+        assert result == "Body\n-- \nDraft sig"
 
     def test_idempotent_full_roundtrip(self) -> None:
         """A second application of the same profile yields the same result."""
