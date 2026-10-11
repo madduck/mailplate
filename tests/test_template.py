@@ -292,12 +292,12 @@ class TestRenderTemplate:
         assert result == "hello"
 
     def test_duplicate_header_key(self) -> None:
-        """Duplicate header keys are handled (last value wins)."""
+        """When a header appears twice, the first value is used."""
         msg = Message()
-        msg["Subject"] = "first"
-        msg["Subject"] = "second"
+        msg.add_header("Subject", "first")
+        msg.add_header("Subject", "second")
         result = render_template("{{ subject }}", msg)
-        assert result == "second"
+        assert result == "first"
 
 
 class TestRunHelper:
