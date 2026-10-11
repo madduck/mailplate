@@ -20,6 +20,7 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import sys
 from email.message import Message
 from pathlib import Path
@@ -30,6 +31,8 @@ from . import VERSION
 from .merge import merge_profile, parse_email, serialize_email
 from .profile import Profile, Rule, discover_profiles
 from .rules import _match_rule
+
+log = logging.getLogger(__name__)
 
 DEFAULT_PROFILE_DIRS = [
     Path.home() / ".config" / "mailplate" / "profiles",
@@ -54,7 +57,11 @@ def _resolve_profile_dirs(extra: tuple[Path, ...] | None) -> list[Path]:
     dirs: list[Path] = []
     if extra:
         dirs.extend(extra)
+        for d in extra:
+            log.debug("using extra profile directory: %s", d)
     dirs.extend(DEFAULT_PROFILE_DIRS)
+    for d in dirs:
+        log.debug("search path: %s", d)
     return dirs
 
 
@@ -77,20 +84,53 @@ def _pick_best_profile(profiles: list[Profile], message: Message) -> Profile | N
     best: Profile | None = None
     best_score = -1
 
+    log.debug("evaluating %d profiles for auto-detection", len(profiles))
     for profile in profiles:
         if profile.rules:
-            score = sum(
-                1 for rule in profile.rules if _match_rule_for_scoring(rule, message)
+            details: list[str] = []
+            score = 0
+            for rule in profile.rules:
+                matched = _match_rule_for_scoring(rule, message)
+                if matched:
+                    score += 1
+                    details.append(f"  ✔ {rule.kind} = {rule.value}")
+                else:
+                    details.append(f"  ✘ {rule.kind} = {rule.value}")
+            log.debug(
+                "profile %r (%s): score %d/%d\n%s",
+                profile.stem,
+                profile.name,
+                score,
+                len(profile.rules),
+                "\n".join(details),
             )
             if score > best_score:
+                log.debug(
+                    "  → new best (previous best was %s)",
+                    best_score if best_score >= 0 else "none",
+                )
                 best = profile
                 best_score = score
         else:
-            # A profile with no rules is a catch-all with score 0.
+            log.debug(
+                "profile %r (%s): no rules (catch-all, score 0)",
+                profile.stem,
+                profile.name,
+            )
             if best_score < 0:
+                log.debug("  → selected as catch-all (no rule-based profile matched)")
                 best = profile
                 best_score = 0
 
+    if best is not None:
+        log.debug(
+            "selected profile %r (%s) with score %d",
+            best.stem,
+            best.name,
+            best_score,
+        )
+    else:
+        log.debug("no matching profile found")
     return best
 
 
@@ -113,6 +153,13 @@ def _match_rule_for_scoring(rule: Rule, message: Message) -> bool:
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.version_option(version=VERSION, prog_name="mailplate")
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    default=False,
+    help="Print diagnostic information to stderr.",
+)
 @click.option(
     "-p",
     "--profile",
@@ -148,6 +195,7 @@ def main(
     profile_dirs: tuple[Path, ...],
     list_profiles: bool,
     output: Path | None,
+    verbose: bool,
 ) -> None:
     """
     Apply a mailplate profile to an RFC5322 email draft.
@@ -156,8 +204,16 @@ def main(
     profile, and writes the result to stdout (or to the file specified
     with ``--output``).
     """
+    if verbose:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(levelname)s %(message)s",
+            stream=sys.stderr,
+        )
+
     dirs = _resolve_profile_dirs(profile_dirs)
     profiles = discover_profiles(dirs)
+    log.debug("discovered %d profile(s)", len(profiles))
 
     if list_profiles:
         if not profiles:
@@ -172,6 +228,7 @@ def main(
     if not raw_data:
         click.echo("Error: no input data (stdin is empty).", err=True)
         sys.exit(1)
+    log.debug("read %d byte(s) from stdin", len(raw_data))
 
     message = parse_email(raw_data)
 
@@ -182,13 +239,16 @@ def main(
         if profile is None:
             click.echo(f"Error: profile {profile_name!r} not found.", err=True)
             sys.exit(1)
+        log.debug("explicit profile: %r (%s)", profile.stem, profile.name)
     else:
         # Auto-detect the best profile.
+        log.debug("auto-detecting profile from %d candidate(s)", len(profiles))
         profile = _pick_best_profile(profiles, message)
 
     if profile is None:
         # No profile matched (auto-detect) or none was specified;
         # pass the input through verbatim.
+        log.debug("no profile selected — passing input through unchanged")
         if output:
             output.write_bytes(raw_data)
         else:
@@ -196,12 +256,23 @@ def main(
         return
 
     # Apply the profile.
+    log.debug(
+        "applying profile %r (%s): %d header(s), greeting=%s, closing=%s, signature=%s",
+        profile.stem,
+        profile.name,
+        len(profile.headers),
+        "yes" if profile.greeting else "no",
+        "yes" if profile.closing else "no",
+        "yes" if profile.signature else "no",
+    )
     result = merge_profile(message, profile)
     serialized = serialize_email(result)
 
     if output:
+        log.debug("writing %d byte(s) to %s", len(serialized), output)
         output.write_bytes(serialized)
     else:
+        log.debug("writing %d byte(s) to stdout", len(serialized))
         sys.stdout.buffer.write(serialized)
 
 
