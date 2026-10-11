@@ -120,7 +120,7 @@ that, never open:
   -`*_cache`
 - Do not merge, or force-push without approval.
 - Don't commit to `main` or push without being asked.
-- Branch from `main` as `feature/<name>`.
+- Each distinct deliverable (a feature, a file, a change to a single file) must be on its own feature branch. Never mix unrelated changes on the same branch.
 - Every task must be performed on a feature branch. Make at least one commit per file change; group closely related edits into a single commit only when they cannot stand alone.
 - Include your thinking in the commit messages.
 - Do not use Conventional Commits; Use scope-prefixed commit messages instead.
