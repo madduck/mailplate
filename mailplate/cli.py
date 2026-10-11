@@ -26,8 +26,10 @@ from pathlib import Path
 
 import click
 
-from mailplate.merge import merge_profile, parse_email, serialize_email
-from mailplate.profile import Profile, Rule, discover_profiles
+from . import VERSION
+from .merge import merge_profile, parse_email, serialize_email
+from .profile import Profile, Rule, discover_profiles
+from .rules import _match_rule
 
 DEFAULT_PROFILE_DIRS = [
     Path.home() / ".config" / "mailplate" / "profiles",
@@ -110,6 +112,7 @@ def _match_rule_for_scoring(rule: Rule, message: Message) -> bool:
 @click.command(
     context_settings={"help_option_names": ["-h", "--help"]},
 )
+@click.version_option(version=VERSION, prog_name="mailplate")
 @click.option(
     "-p",
     "--profile",

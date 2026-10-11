@@ -338,7 +338,6 @@ wheels = [
 
 [[package]]
 name = "mailplate"
-version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -353,6 +352,8 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-ruff" },
     { name = "ruff" },
+    { name = "setuptools-scm" },
+    { name = "vcs-versioning" },
 ]
 
 [package.metadata]
@@ -367,6 +368,8 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "pytest-ruff", specifier = ">=0.5" },
     { name = "ruff", specifier = ">=0.17.0" },
+    { name = "setuptools-scm", specifier = ">=10.3.4" },
+    { name = "vcs-versioning", specifier = ">=2.6.0" },
 ]
 
 [[package]]
@@ -670,6 +673,29 @@ wheels = [
 ]
 
 [[package]]
+name = "setuptools"
+version = "84.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/44/f5da03a8ef95d369145c5bb53050e7877c9f3d312e128605fd9504829143/setuptools-84.0.0.tar.gz", hash = "sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73", size = 1168449, upload-time = "2026-08-08T18:27:58.365Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl", hash = "sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670", size = 818216, upload-time = "2026-08-08T18:27:56.719Z" },
+]
+
+[[package]]
+name = "setuptools-scm"
+version = "10.3.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+    { name = "setuptools" },
+    { name = "vcs-versioning" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/85/d8/fc143f88819ccf10ba2388ba86732ee2de193e578234e25a783f6cc14bf7/setuptools_scm-10.3.4.tar.gz", hash = "sha256:a69f28bfc245608781205e912faae437c2b2165773afa4e7b979d77447a69dd2", size = 78410, upload-time = "2026-09-23T19:21:42.95Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/f5/54538a1f17ea753c42b0928dc2e62986d463f8c393340b9a1e602f2d4dd9/setuptools_scm-10.3.4-py3-none-any.whl", hash = "sha256:82f34c3e3084fc2b57d397200637cc13f2338004052d2fee47baa5f0e902464e", size = 33366, upload-time = "2026-09-23T19:21:41.607Z" },
+]
+
+[[package]]
 name = "stack-data"
 version = "0.6.3"
 source = { registry = "https://pypi.org/simple" }
@@ -708,6 +734,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz", hash = "sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5", size = 113555, upload-time = "2026-07-02T08:40:05.92Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl", hash = "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8", size = 45571, upload-time = "2026-07-02T08:40:04.659Z" },
+]
+
+[[package]]
+name = "vcs-versioning"
+version = "2.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ad/e7/2a691db7d076b75d099fdba1a14cd966931f2aeb591e77f6d22f15097326/vcs_versioning-2.6.0.tar.gz", hash = "sha256:22e9159288e2d8bca2fa6f6c31c34c9c66aec157f60e9e526f5d160d2516d60f", size = 166800, upload-time = "2026-10-06T22:21:55.024Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/1d/ad4064bf12f4503bf61e65d74c93c523672776d25ee0a06aaf42ae09ef3f/vcs_versioning-2.6.0-py3-none-any.whl", hash = "sha256:f8bebd1302ebc12e67ceb30fc7dd698ec969414b6fa43b30c3f14ac9b1e72c41", size = 123154, upload-time = "2026-10-06T22:21:53.267Z" },
 ]
 
 [[package]]

@@ -18,6 +18,9 @@ This is a CLI application that merges an RFC5322 email draft with a Profile to c
 - Use the latest Python and the newest syntax, but do not import from `__future__` without approval.
 - Dependency management: `uv` and `pyproject.toml`. Never use `pip` or a `requirements.txt` file.
 - Add a dependency with `uv add <package>`. Never use `uv pip`.
+- Make sure that `./$PACKAGENAME/_version.py` provides the package's version information from the build system / Git. This file should not be tracked in Git.
+- Set up `./$PACKAGENAME/__init__.py` to export the full version string as `VERSION`, gracefully handling the situation wherein the file does not (yet) exist by setting the version string to `None`.
+- Use the exported version string for the output when the CLI is invoked with `--version`.
 
 ## Project Structure
 

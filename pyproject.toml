@@ -1,6 +1,6 @@
 [project]
 name = "mailplate"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A Unix-style filter for RFC5322 email drafts that rewrites them according to a profile"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -13,8 +13,12 @@ mailplate = "mailplate.cli:main"
 where = ["."]
 include = ["mailplate*"]
 
+[tool.setuptools_scm]
+write_to = "mailplate/_version.py"
+fallback_version = "0.0.0"
+
 [build-system]
-requires = ["setuptools>=75.0"]
+requires = ["setuptools>=75.0", "setuptools-scm>=8.0,<10"]
 build-backend = "setuptools.build_meta"
 
 [dependency-groups]
@@ -26,6 +30,8 @@ dev = [
   "pytest-cov>=7.1.0",
   "pytest-ruff>=0.5",
   "ruff>=0.17.0",
+  "setuptools-scm>=10.3.4",
+  "vcs-versioning>=2.6.0",
 ]
 
 
