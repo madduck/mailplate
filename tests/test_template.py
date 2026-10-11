@@ -11,6 +11,7 @@ from mailplate.template import (
     _first_address_email,
     _first_address_name,
     _get_variable,
+    _run_helper,
     render_template,
 )
 
@@ -262,3 +263,60 @@ class TestRenderTemplate:
         helpers = {"ping": "echo pong"}
         result = render_template("{{ helper:ping }}", msg, helpers)
         assert result == "pong"
+
+    def test_rule_variable(self) -> None:
+        """The rule: variable looks up a named capture."""
+        msg = self._make_message({})
+        result = render_template(
+            "{{ rule:domain }}", msg, captures={"domain": "example.com"}
+        )
+        assert result == "example.com"
+
+    def test_rule_variable_missing(self) -> None:
+        """A missing rule: variable returns empty string."""
+        msg = self._make_message({})
+        result = render_template("{{ rule:missing }}", msg)
+        assert result == ""
+
+    def test_unknown_helper_returns_error(self) -> None:
+        """An undefined helper returns an error message."""
+        msg = self._make_message({})
+        helpers: dict[str, str] = {}
+        result = render_template("{{ helper:nonexistent }}", msg, helpers)
+        assert "unknown helper" in result
+
+    def test_unknown_filter_passthrough(self) -> None:
+        """An unknown filter returns the value unchanged."""
+        msg = self._make_message({"Subject": "hello"})
+        result = render_template("{{ subject | upper }}", msg)
+        assert result == "hello"
+
+
+class TestRunHelper:
+    """Tests for _run_helper."""
+
+    def test_nonzero_exit(self) -> None:
+        """A command that exits non-zero returns an error message."""
+        result = _run_helper("false")
+        assert "error" in result.lower() or "status" in result
+
+    def test_nonexistent_command(self) -> None:
+        """A command that cannot be found returns an error message."""
+        result = _run_helper("nonexistent_command_xyzzy")
+        assert "error" in result.lower() or "status" in result
+
+
+class TestGetVariableRule:
+    """Tests for _get_variable with the rule: namespace."""
+
+    def test_rule_variable(self) -> None:
+        """A rule: variable looks up a named capture."""
+        context = {"_captures": {"domain": "example.org"}}
+        result = _get_variable("rule:domain", context)
+        assert result == "example.org"
+
+    def test_rule_variable_missing(self) -> None:
+        """A missing rule: variable returns empty string."""
+        context: dict[str, object] = {"_captures": {}}
+        result = _get_variable("rule:missing", context)
+        assert result == ""

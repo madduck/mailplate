@@ -198,4 +198,65 @@ class TestProfileMatches:
         assert profile_matches(profile, msg) is False
 
 
+class TestMatchRuleCaptures:
+    """Tests for _match_rule_captures."""
+
+    def _make_message(
+        self, headers: dict[str, str] | None = None, body: str = ""
+    ) -> Message:
+        """Create a simple email message."""
+        msg = Message()
+        if headers:
+            for name, value in headers.items():
+                msg[name] = value
+        if body:
+            msg.set_payload(body)
+        return msg
+
+    def test_header_capture(self) -> None:
+        """A header capture group is returned."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="header", value="From:.*@(?P<domain>[a-z.]+)")
+        msg = self._make_message({"From": "a@example.com"})
+        result = _match_rule_captures(rule, msg)
+        assert result == {"domain": "example.com"}
+
+    def test_body_capture(self) -> None:
+        """A body capture group is returned."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="body", value="(?P<urgent>urgent)")
+        msg = self._make_message({}, "This is urgent")
+        result = _match_rule_captures(rule, msg)
+        assert result == {"urgent": "urgent"}
+
+    def test_no_match_returns_empty(self) -> None:
+        """A non-matching rule returns an empty dict."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="header", value="X-Custom: (?P<val>\\d+)")
+        msg = self._make_message({"From": "a@b.com"})
+        result = _match_rule_captures(rule, msg)
+        assert result == {}
+
+    def test_invalid_regex_returns_empty(self) -> None:
+        """An invalid regex returns an empty dict."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="header", value="From:**[invalid")
+        msg = self._make_message({"From": "a@b.com"})
+        result = _match_rule_captures(rule, msg)
+        assert result == {}
+
+    def test_header_no_colon_returns_empty(self) -> None:
+        """A header rule without a colon returns an empty dict."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="header", value="NoColon")
+        msg = self._make_message({"From": "a@b.com"})
+        result = _match_rule_captures(rule, msg)
+        assert result == {}
+
+
 from pathlib import Path
