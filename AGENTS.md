@@ -105,6 +105,7 @@ that, never open:
 - Don't commit to `main` or push without being asked.
 - Branch from `main` as `feature/<name>`.
 - Make frequent, small commits, keeping contents logically together. Include your thinking in the commit messages.
+- Do not use Conventional Commits; Use scope-prefixed commit messages instead.
 - Do not include unrelated formatting changes.
 - Keep migrations and generated files in the same change as the code that requires them.
 - Summarise user-visible behavior and validation in a final commit message preparing a PR.
