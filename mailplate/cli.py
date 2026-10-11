@@ -185,12 +185,15 @@ def main(
     else:
         # Auto-detect the best profile.
         profile = _pick_best_profile(profiles, message)
-        if profile is None:
-            click.echo(
-                "Error: no profile matches and no profile specified.",
-                err=True,
-            )
-            sys.exit(1)
+
+    if profile is None:
+        # No profile matched (auto-detect) or none was specified;
+        # pass the input through verbatim.
+        if output:
+            output.write_bytes(raw_data)
+        else:
+            sys.stdout.buffer.write(raw_data)
+        return
 
     # Apply the profile.
     result = merge_profile(message, profile)

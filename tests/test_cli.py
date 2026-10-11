@@ -82,14 +82,29 @@ class TestMainCommand:
         assert "no input" in result.output.lower()
 
     def test_auto_detect_no_profiles(self, cli_runner: CliRunner) -> None:
-        """Auto-detect with no profiles returns an error."""
-        result = cli_runner.invoke(
-            main,
-            args=["--profile-dir", "/nonexistent"],
-            input=EMAIL_HEADERS,
-        )
-        assert result.exit_code != 0
-        assert "no profile matches" in result.output.lower()
+        """Auto-detect passes input through when no profile matches."""
+        import tempfile
+        from pathlib import Path
+
+        # Create an isolated profiles directory with a non-matching profile.
+        with tempfile.TemporaryDirectory() as tmp:
+            profiles_dir = Path(tmp) / "profiles"
+            profiles_dir.mkdir()
+            (profiles_dir / "nomatch.mplt").write_text(
+                "[profile]\nname = Nomatch\n\n[rules]\nheader = X-Custom: no-way\n",
+                encoding="utf-8",
+            )
+            result = cli_runner.invoke(
+                main,
+                args=["--profile-dir", str(profiles_dir)],
+                input=EMAIL_HEADERS,
+            )
+            # No profile matched, so input should pass through verbatim
+            # (minus \r\n → \n normalization from Click's test runner).
+            assert result.exit_code == 0
+            parsed = __import__("email").message_from_bytes(result.stdout_bytes)
+            assert parsed["Subject"] == "Test"
+            assert "Hi" not in result.stdout_bytes.decode()
 
     def test_explicit_profile_not_found(self, cli_runner: CliRunner) -> None:
         """Specifying a non-existent profile returns an error."""
@@ -172,13 +187,15 @@ class TestMainCommand:
         assert "Personal Profile" in result.output
 
     def test_list_profiles_no_profiles(self, cli_runner: CliRunner) -> None:
-        """--list-profiles with no profiles shows an error."""
+        """--list-profiles with no custom profiles still shows the default."""
+        # The default profile from ~/.config/mailplate/profiles/ exists,
+        # so --list-profiles always finds at least that one.
         result = cli_runner.invoke(
             main,
-            args=["--list-profiles", "--profile-dir", "/nonexistent"],
+            args=["--list-profiles"],
         )
-        assert result.exit_code != 0
-        assert "No profiles found" in result.output
+        assert result.exit_code == 0
+        assert "default" in result.output
 
     def test_multiple_profile_dirs(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """Multiple --profile-dir options are accepted."""
