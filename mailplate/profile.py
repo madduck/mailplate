@@ -55,16 +55,21 @@ class Rule:
         kind: What aspect of the email to inspect.
         value: The value to match against (e.g. ``HeaderName: regex``
             for ``header`` rules, or a plain regex for ``body`` rules).
+        weight: How many points this rule contributes when it matches.
 
     """
 
     kind: Literal["header", "body"]
     value: str
+    weight: int = 1
 
     def __post_init__(self) -> None:
         """Validate the rule kind."""
         if self.kind not in ("header", "body"):
             msg = f"Unknown rule kind: {self.kind!r}"
+            raise ProfileError(msg)
+        if self.weight < 1:
+            msg = f"Rule weight must be >= 1, got {self.weight}"
             raise ProfileError(msg)
 
 
@@ -101,7 +106,7 @@ class Profile:
 
 
 _SECTION_PATTERN = re.compile(r"^\[(\w+)\]\s*$")
-_RULE_LINE_PATTERN = re.compile(r"^(header|body)\s*=\s*(.+)$")
+_RULE_LINE_PATTERN = re.compile(r"^(header|body)(?::(\d+))?\s*=\s*(.+)$")
 _HEADER_LINE_PATTERN = re.compile(r"^(.+?)\s*=\s*(.*)$")
 
 
@@ -117,9 +122,12 @@ def _parse_rule_line(line: str) -> Rule | None:
 
     """
     if match := _RULE_LINE_PATTERN.match(line):
-        kind_str, value = match.group(1), match.group(2).strip()
+        kind_str = match.group(1)
+        weight_str = match.group(2)
+        value = match.group(3).strip()
         kind: Literal["header", "body"] = kind_str  # type: ignore[assignment]
-        return Rule(kind=kind, value=value)
+        weight = int(weight_str) if weight_str else 1
+        return Rule(kind=kind, value=value, weight=weight)
     return None
 
 

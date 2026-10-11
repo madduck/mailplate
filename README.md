@@ -92,10 +92,19 @@ My Company Inc.
     If absent the filename stem is used.
 
 `[rules]`
-:   Auto‑detection rules.  Each line is `header = HeaderName: regex` or
-    `body = regex`.  All rules inside a profile must match for the
-    profile to be selected (AND semantics).  For OR semantics, create
-    multiple profiles.
+:   Auto‑detection rules. Each line is ``header = HeaderName: regex`` or
+    ``body = regex``. All rules inside a profile must match for the
+    profile to be selected (AND semantics). Rules can carry an optional
+    weight that influences profile scoring.
+
+    ``header:5 = From:.*@company\\.com``
+    :   A header rule worth 5 points instead of the default 1.
+
+    ``body:3 = urgent``
+    :   A body rule worth 3 points.
+
+    The profile with the highest total score wins. Use weights to make
+    some rules more important than others during auto-detection.
 
 `[headers]`
 :   Header definitions. Each line is `Header‑Name = value`.

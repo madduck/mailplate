@@ -92,7 +92,7 @@ def _pick_best_profile(profiles: list[Profile], message: Message) -> Profile | N
             for rule in profile.rules:
                 matched = _match_rule_for_scoring(rule, message)
                 if matched:
-                    score += 1
+                    score += rule.weight
                     details.append(f"  ✔ {rule.kind} = {rule.value}")
                 else:
                     details.append(f"  ✘ {rule.kind} = {rule.value}")

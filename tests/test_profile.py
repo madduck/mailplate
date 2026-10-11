@@ -45,6 +45,7 @@ class TestParseRuleLine:
         assert result is not None
         assert result.kind == "header"
         assert result.value == "From:.*@example\\.com"
+        assert result.weight == 1
 
     def test_body_rule(self) -> None:
         """A body rule line is parsed correctly."""
@@ -52,6 +53,23 @@ class TestParseRuleLine:
         assert result is not None
         assert result.kind == "body"
         assert result.value == "\\[internal\\]"
+        assert result.weight == 1
+
+    def test_header_rule_with_weight(self) -> None:
+        """A header rule with an explicit weight is parsed."""
+        result = _parse_rule_line("header:5 = From:.*@example\\.com")
+        assert result is not None
+        assert result.kind == "header"
+        assert result.value == "From:.*@example\\.com"
+        assert result.weight == 5
+
+    def test_body_rule_with_weight(self) -> None:
+        """A body rule with an explicit weight is parsed."""
+        result = _parse_rule_line("body:3 = urgent")
+        assert result is not None
+        assert result.kind == "body"
+        assert result.value == "urgent"
+        assert result.weight == 3
 
     def test_no_match(self) -> None:
         """A line without a rule pattern returns None."""
@@ -63,6 +81,7 @@ class TestParseRuleLine:
         assert result is not None
         assert result.kind == "header"
         assert result.value == ""
+        assert result.weight == 1
 
 
 class TestParseHeaderLine:
