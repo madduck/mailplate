@@ -144,6 +144,20 @@ My Company Inc.
             "My Company Inc.",
         ]
 
+    def test_remove_headers(self, tmp_path: Path) -> None:
+        """The ``[remove_headers]`` section is parsed."""
+        content = """[profile]
+name = Test
+
+[remove_headers]
+X-NoProxy
+Old-Header
+"""
+        path = tmp_path / "test.mplt"
+        path.write_text(content, encoding="utf-8")
+        profile = load_profile(path)
+        assert profile.remove_headers == ["X-NoProxy", "Old-Header"]
+
     def test_comments_and_blanks(self, tmp_path: Path) -> None:
         """Comments and blank lines are ignored."""
         content = """# This is a comment

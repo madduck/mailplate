@@ -374,6 +374,21 @@ class TestMergeProfile:
         result = merge_profile(msg, profile)
         assert result["Subject"] == "new"
 
+    def test_headers_removed(self) -> None:
+        """Headers listed in remove_headers are deleted."""
+        msg = self._make_message(
+            {"Subject": "Keep", "X-Old": "gone", "X-Obsolete": "also-gone"}
+        )
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            remove_headers=["X-Old", "x-obsolete"],
+        )
+        result = merge_profile(msg, profile)
+        assert result["Subject"] == "Keep"
+        assert "X-Old" not in result
+        assert "X-Obsolete" not in result
+
     def test_body_is_replaced(self) -> None:
         """The body is replaced with greeting + body + closing + signature."""
         msg = self._make_message({}, "Original body")

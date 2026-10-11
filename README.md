@@ -116,6 +116,10 @@ My Company Inc.
 :   Lines appended at the end of the message. Template variables are
     expanded.
 
+`[remove_headers]`
+:   One header name per line; matching headers (case‑insensitive) are
+    deleted from the output. Takes effect after ``[headers]`` have been set.
+
 Comments start with `#` and blank lines are ignored.
 
 ### Idempotency

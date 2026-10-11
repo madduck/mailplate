@@ -249,6 +249,14 @@ def merge_profile(message: Message, profile: Profile) -> Message:
             del result[key]
         result[hdr_name] = hdr_value
 
+    # 1b. Remove headers listed in the profile.
+    for rm_name in profile.remove_headers:
+        keys_to_remove: list[str] = [
+            key for key in result if key.lower() == rm_name.lower()
+        ]
+        for key in keys_to_remove:
+            del result[key]
+
     # 2. Build the new body and set it as UTF-8 bytes so that
     #    compat32 serialisation does not force ASCII encoding.
     new_body = _build_new_body(result, profile)
