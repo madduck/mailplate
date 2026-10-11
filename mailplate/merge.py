@@ -23,6 +23,52 @@ if TYPE_CHECKING:
     from .profile import Profile
 
 
+def _strip_prefix(text: str, prefix: str) -> str:
+    """
+    Remove *prefix* from the start of *text* if present.
+
+    The prefix must be followed by a newline *or* be the entire text.
+
+    Args:
+        text: The string to strip from.
+        prefix: The prefix to remove.
+
+    Returns:
+        The stripped string.
+
+    """
+    if not prefix:
+        return text
+    if text == prefix:
+        return ""
+    if text.startswith(prefix + "\n"):
+        return text[len(prefix) + 1 :]
+    return text
+
+
+def _strip_suffix(text: str, suffix: str) -> str:
+    """
+    Remove *suffix* from the end of *text* if present.
+
+    The suffix must be preceded by a newline *or* be the entire text.
+
+    Args:
+        text: The string to strip from.
+        suffix: The suffix to remove.
+
+    Returns:
+        The stripped string.
+
+    """
+    if not suffix:
+        return text
+    if text == suffix:
+        return ""
+    if text.endswith("\n" + suffix):
+        return text[: -(len(suffix) + 1)]
+    return text
+
+
 def _build_new_body(message: Message, profile: Profile) -> str:
     """
     Build the new body from a profile's greeting, closing, and signature.
@@ -37,6 +83,11 @@ def _build_new_body(message: Message, profile: Profile) -> str:
     Each section is rendered through the template engine so that
     ``{{ variable }}`` placeholders are substituted.
 
+    The operation is **idempotent**: if the body already starts with the
+    greeting and/or ends with the closing\u00b1signature block, those are
+    stripped off first so that repeated applications of the same profile
+    do not keep piling on extra decorations.
+
     Args:
         message: The original parsed email.
         profile: The profile to apply.
@@ -45,9 +96,7 @@ def _build_new_body(message: Message, profile: Profile) -> str:
         The reconstructed body string.
 
     """
-    from mailplate.template import render_template
-
-    original_body = _get_body_for_merge(message)
+    body = _get_body_for_merge(message)
 
     # Each section is a list of lines; we join with newlines and render.
     greeting_text = "\n".join(profile.greeting)
@@ -62,10 +111,25 @@ def _build_new_body(message: Message, profile: Profile) -> str:
         render_template(signature_text, message) if profile.signature else ""
     )
 
+    # --- idempotent strip ---
+    # Remove greeting from the start if it is already there.
+    body = _strip_prefix(body, rendered_greeting)
+
+    # Build the combined suffix that would have been appended
+    # (closing \u00b1 signature) and strip it if present.
+    suffix_parts: list[str] = []
+    if rendered_closing:
+        suffix_parts.append(rendered_closing)
+    if rendered_signature:
+        suffix_parts.append(rendered_signature)
+    combined_suffix = "\n".join(suffix_parts)
+    body = _strip_suffix(body, combined_suffix)
+
+    # --- reassemble ---
     parts: list[str] = []
     if rendered_greeting:
         parts.append(rendered_greeting)
-    parts.append(original_body)
+    parts.append(body)
     if rendered_closing:
         parts.append(rendered_closing)
     if rendered_signature:

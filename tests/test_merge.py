@@ -9,6 +9,8 @@ from pathlib import Path
 from mailplate.merge import (
     _build_new_body,
     _get_body_for_merge,
+    _strip_prefix,
+    _strip_suffix,
     merge_profile,
     parse_email,
     serialize_email,
@@ -30,6 +32,56 @@ class TestGetBodyForMerge:
         """An empty body returns an empty string."""
         msg = Message()
         assert _get_body_for_merge(msg) == ""
+
+
+class TestStripPrefix:
+    """Tests for _strip_prefix."""
+
+    def test_no_prefix(self) -> None:
+        """Text without prefix is returned unchanged."""
+        assert _strip_prefix("hello world", "greeting") == "hello world"
+
+    def test_prefix_at_start(self) -> None:
+        """Prefix followed by newline is stripped."""
+        result = _strip_prefix("Hi,\nbody text", "Hi,")
+        assert result == "body text"
+
+    def test_exact_match(self) -> None:
+        """Text that is exactly the prefix returns empty."""
+        assert _strip_prefix("Hi,", "Hi,") == ""
+
+    def test_empty_prefix(self) -> None:
+        """Empty prefix returns the text unchanged."""
+        assert _strip_prefix("hello", "") == "hello"
+
+    def test_prefix_without_newline(self) -> None:
+        """Prefix not followed by newline (not a separate block) is kept."""
+        assert _strip_prefix("Hi, there", "Hi,") == "Hi, there"
+
+
+class TestStripSuffix:
+    """Tests for _strip_suffix."""
+
+    def test_no_suffix(self) -> None:
+        """Text without suffix is returned unchanged."""
+        assert _strip_suffix("hello world", "suffix") == "hello world"
+
+    def test_suffix_at_end(self) -> None:
+        """Suffix preceded by newline is stripped."""
+        result = _strip_suffix("body text\nBest,\nAlice", "Best,\nAlice")
+        assert result == "body text"
+
+    def test_exact_match(self) -> None:
+        """Text that is exactly the suffix returns empty."""
+        assert _strip_suffix("Best,\nAlice", "Best,\nAlice") == ""
+
+    def test_empty_suffix(self) -> None:
+        """Empty suffix returns the text unchanged."""
+        assert _strip_suffix("hello", "") == "hello"
+
+    def test_suffix_without_newline(self) -> None:
+        """Suffix not preceded by newline (mid-line) is kept."""
+        assert _strip_suffix("Best, Alice", "Alice") == "Best, Alice"
 
 
 class TestBuildNewBody:
@@ -105,6 +157,54 @@ class TestBuildNewBody:
         msg = self._make_message({"To": "Bob <bob@e.com>"}, "Hello")
         result = _build_new_body(msg, profile)
         assert result == "Hi Bob,\nHello"
+
+    def test_idempotent_greeting(self) -> None:
+        """Greeting is not added again if the body already starts with it."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            greeting=["Hi {{ to_name }},"],
+        )
+        msg = self._make_message({"To": "Bob <bob@e.com>"}, "Hi Bob,\nAlready greeted")
+        result = _build_new_body(msg, profile)
+        assert result == "Hi Bob,\nAlready greeted"
+
+    def test_idempotent_closing_and_signature(self) -> None:
+        """Closing+signature is not added again if the body already ends with it."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            closing=["Best,"],
+            signature=["{{ from_name }}"],
+        )
+        msg = self._make_message(
+            {"From": "Alice <alice@e.com>"},
+            "Some text\nBest,\nAlice",
+        )
+        result = _build_new_body(msg, profile)
+        assert result == "Some text\nBest,\nAlice"
+
+    def test_idempotent_full_roundtrip(self) -> None:
+        """A second application of the same profile yields the same result."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            greeting=["Hi {{ to_name }},"],
+            closing=["Best,"],
+            signature=["{{ from_name }}"],
+        )
+        msg = self._make_message(
+            {"From": "Alice <alice@e.com>", "To": "Bob <bob@e.com>"},
+            "Meeting tomorrow?",
+        )
+        first = _build_new_body(msg, profile)
+        # Simulate a second run: treat first result as the new body.
+        msg2 = self._make_message(
+            {"From": "Alice <alice@e.com>", "To": "Bob <bob@e.com>"},
+            first,
+        )
+        second = _build_new_body(msg2, profile)
+        assert first == second
 
 
 class TestMergeProfile:
