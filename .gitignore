@@ -1,1 +1,6 @@
 /.envrc
+*_cache/
+*.egg-info/
+.coverage
+.venv/
+.direnv/
