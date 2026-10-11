@@ -206,6 +206,21 @@ closing lines.
 mailplate --version
 ```
 
+## Migration
+
+If you have existing profiles from an older version of mailplate, a
+migration script is provided:
+
+```sh
+uv run python3 scripts/migrate_templates.py
+```
+
+This reads templates from ``~/.mailplate/templates/`` and the helper
+configuration from ``~/.mailplate/config`` and writes ``.mplt`` files
+to the project&#8217;s ``profiles/`` directory. After migration, copy
+them to ``~/.config/mailplate/profiles/`` or point ``--profile-dir`` at
+the output directory.
+
 ## License
 
 Distributed under the terms of the MIT license.
