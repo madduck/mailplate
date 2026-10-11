@@ -1,1 +1,7 @@
 /.envrc
+*_cache/
+*.egg-info/
+__pycache__
+.coverage
+.venv/
+.direnv/

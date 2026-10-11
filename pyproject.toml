@@ -1,0 +1,87 @@
+[project]
+name = "mailplate"
+version = "0.1.0"
+description = "A Unix-style filter for RFC5322 email drafts that rewrites them according to a profile"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = ["click>=8.0"]
+
+[project.scripts]
+mailplate = "mailplate.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mailplate*"]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+  "bandit>=1.9.4",
+  "ipdb>=0.13.13",
+  "mypy>=2.4.0",
+  "pytest>=9.1.1",
+  "pytest-cov>=7.1.0",
+  "pytest-ruff>=0.5",
+  "ruff>=0.17.0",
+]
+
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+extend-select = [
+  "I",       # isort
+  "UP",      # pyupgrade
+  "D",       # pydocstyle
+  "N",       # naming
+  "PLC0415", # import-outside-top-level
+]
+ignore = ["D203", "D212"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "N", "PLC0415"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = 3.14
+strict = true
+warn_unreachable = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "ipdb"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = [
+  "-ra",
+  "--pdbcls=IPython.terminal.debugger:TerminalPdb",
+  "--tb=short",
+  "--cov=mailplate",
+  "--cov-branch",
+  "--cov-report=term-missing:skip-covered",
+]
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_also = [
+  'def __repr__',
+  'if TYPE_CHECKING:',
+  'class .*\bProtocol\):',
+  '@overload',
+  '@(abc\.)?abstractmethod',
+  'raise NotImplementedError',
+  'raise AssertionError',
+]
+
+[tool.bandit]
+exclude_dirs = [".venv"]
