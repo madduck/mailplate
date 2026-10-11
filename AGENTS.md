@@ -5,7 +5,7 @@ This is a CLI application that merges an RFC5322 email draft with a Profile to c
 ## Constraints
 
 - Never install any tool without approval.
-- Never operate on files outside the project hierarchy. The only exception is that you may read the files provided by Pi itself.
+- Never read, write, list, or otherwise access files or directories outside the project hierarchy, even for debugging or investigation. Assume all external state is off-limits and irrelevant. If a test or behavior depends on something outside the tree, make the test hermetic instead of inspecting the external cause. The only exception is that you may read the files provided by Pi itself, and if you are convinced you should be allowed, e.g. to read the project's own configuration/state files. In that case, however, obtain my approval first.
 - Don't use blocking I/O inside `async` functions.
 
 ## Stack
