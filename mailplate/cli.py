@@ -267,7 +267,9 @@ def main(
     if profile is None:
         # No profile matched (auto-detect) or none was specified;
         # pass the input through verbatim.
-        log.debug("no profile selected — passing input through unchanged")  # pragma: no cover
+        log.debug(
+            "no profile selected — passing input through unchanged"
+        )  # pragma: no cover
         if output:  # pragma: no cover
             output.write_bytes(raw_data)  # pragma: no cover
         else:  # pragma: no cover

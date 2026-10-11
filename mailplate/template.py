@@ -129,7 +129,9 @@ def _apply_filter(value: str, filter_expr: str) -> str:
     if filter_expr.startswith("default(") and filter_expr.endswith(")"):
         inner = filter_expr[len("default(") : -1].strip()
         # Remove surrounding quotes.
-        if (inner.startswith('"') and inner.endswith('"')) or (  # pragma: no cover (branch complexity)
+        if (
+            inner.startswith('"') and inner.endswith('"')
+        ) or (  # pragma: no cover (branch complexity)
             inner.startswith("'") and inner.endswith("'")
         ):
             inner = inner[1:-1]

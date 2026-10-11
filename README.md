@@ -46,6 +46,16 @@ mailplate < draft.eml > rewritten.eml
 mailplate --list-profiles
 ```
 
+### Verbose logging
+
+```sh
+mailplate --verbose < draft.eml
+```
+
+Prints diagnostic information to stderr: profile search paths,
+discovery counts, per‑rule match/fail for every candidate,
+selection rationale, and byte counts for reads and writes.
+
 ### In‑place replacement (via temporary file)
 
 ```sh
@@ -84,6 +94,12 @@ Best regards,
 {{ from_email }}
 My Company Inc.
 ```
+
+mailplate only handles **plain‑text** drafts — messages that contain
+anything other than ``text/plain`` (e.g. HTML parts, attachments) are
+rejected with an error.  The output is a bare RFC 5322 message without
+MIME headers (no ``MIME-Version``, ``Content-Type``, or
+``Content-Transfer-Encoding``).
 
 ### Sections
 
@@ -135,7 +151,17 @@ My Company Inc.
 
 `[signature]`
 :   Lines appended at the end of the message. Template variables are
-    expanded.
+    expanded. The signature is separated from the closing by a
+    ``^-- $`` delimiter line.
+
+    If the original draft already contains a signature (i.e. text
+    following a ``^-- $`` line), that signature is replaced by the
+    profile&#8217;s ``[signature]`` section. If the profile does not
+    define a ``[signature]`` section, the original draft signature
+    is preserved unchanged.
+
+    Greeting and closing idempotency (see below) applies only to the
+    body portion; the signature is never touched by that logic.
 
 `[remove_headers]`
 :   One header name per line; matching headers (case‑insensitive) are

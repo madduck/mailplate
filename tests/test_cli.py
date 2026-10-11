@@ -258,7 +258,9 @@ X-Profile = personal
         assert b"X-Profile: work" in result.stdout_bytes
         assert b"X-Profile: personal" not in result.stdout_bytes
 
-    def test_verbose_no_profile_match(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+    def test_verbose_no_profile_match(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
         """Verbose mode does not prevent normal operation when no rule matches."""
         profile_dir = tmp_path / "profiles"
         profile_dir.mkdir()
@@ -279,7 +281,9 @@ header = X-Custom: will-never-match
         assert result.exit_code == 0
         assert b"From: alice@other.com" in result.stdout_bytes
 
-    def test_explicit_profile_verbose(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+    def test_explicit_profile_verbose(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
         """Verbose output with an explicit profile (no stderr assertions)."""
         profile_dir = tmp_path / "profiles"
         profile_dir.mkdir()
