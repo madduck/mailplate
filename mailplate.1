@@ -1,0 +1,184 @@
+.\" mailplate - apply a mailplate profile to an RFC5322 email draft
+.\"
+.TH MAILPLATE 1 "2026-10-11" "mailplate" "User Commands"
+.\"
+.SH NAME
+mailplate \- apply a mailplate profile to an RFC5322 email draft
+.\"
+.SH SYNOPSIS
+.B mailplate
+[\fB\-p\fR \fINAME\fR]
+[\fB\-d\fR \fIDIR\fR]...
+[\fB\-o\fR \fIFILE\fR]
+[\fB\-l\fR]
+[\fB\-h\fR]
+[\fB\-\-version\fR]
+.SH DESCRIPTION
+.B mailplate
+is a Unix\-style filter for RFC5322 email drafts.
+It reads a draft from standard input, rewrites it according to a
+profile, and writes the result to standard output.
+.PP
+The profile controls which headers are added or overridden, how the
+body is restructured (greeting, closing, signature blocks), and all
+sections can contain template placeholders that are filled with data
+extracted from the incoming message.
+.\"
+.SH OPTIONS
+.TP
+.BR \-p ", " \-\-profile " " \fINAME\fR
+Apply the profile identified by \fINAME\fR (the filename stem or the
+display name).  When this option is omitted,
+.B mailplate
+auto\-detects the best matching profile by evaluating each profile's
+rules against the message and selecting the one with the most matches.
+A profile with no rules is a catch\-all with score 0.
+.TP
+.BR \-d ", " \-\-profile-dir " " \fIDIR\fR
+Add \fIDIR\fR to the list of directories scanned for profile files.
+May be specified more than once.  Extra directories take precedence over
+the default search paths.
+.TP
+.BR \-o ", " \-\-output " " \fIFILE\fR
+Write the transformed message to \fIFILE\fR instead of standard output.
+.TP
+.BR \-l ", " \-\-list-profiles
+List all available profiles and exit.  Each line shows the filename stem
+(used with \fB\-p\fR) and the display name.
+.TP
+.BR \-h ", " \-\-help
+Show a summary of options and exit.
+.TP
+.BR \-\-version
+Print the program version and exit.
+.\"
+.SH PROFILE FORMAT
+Profiles are flat text files with a
+.B .mplt
+extension.  The format is INI\-like with sections delimited by
+.BR [square\ brackets] .
+Comments start with
+.B #
+and blank lines are ignored.
+.PP
+.IP \fB[profile]\fR 16
+Profile metadata.  The only recognized field is
+.BR name .
+If absent, the filename stem is used as the display name.
+.IP \fB[rules]\fR 16
+Auto\-detection rules.  Each line has the form
+.RS
+.IP \[bu]
+\fBheader =\fR \fIHeaderName\fR:\fIregex\fR
+.IP \[bu]
+\fBbody =\fR \fIregex\fR
+.RE
+.IP
+All rules inside a section must match for the profile to be selected
+(AND semantics).  For OR semantics create multiple profiles.
+.IP \fB[headers]\fR 16
+Header definitions in the form
+.BI "Header-Name = " value.
+Existing headers with the same name (case\-insensitive) are replaced.
+Template placeholders are not expanded in header values.
+.IP \fB[greeting]\fR 16
+Lines inserted before the original body.  Template variables are
+expanded.
+.IP \fB[closing]\fR 16
+Lines inserted after the original body but before the signature.
+Template variables are expanded.
+.IP \fB[signature]\fR 16
+Lines appended at the end of the message.  Template variables are
+expanded.
+.PP
+.I Idempotency
+.br
+If the body already starts with the rendered greeting and/or ends with
+the rendered closing+signature block, those are stripped before the
+fresh decorations are applied.  Running
+.B mailplate
+multiple times with the same profile therefore does not keep piling on
+extra greeting or closing lines.
+.\"
+.SH TEMPLATE VARIABLES
+The following placeholders can be used in the
+.BR [greeting] ,
+.BR [closing] ,
+and
+.B [signature]
+sections.
+.PP
+.TS
+l lx.
+\fBVariable\fR	\fBD e s c r i p t i o n\fR
+_
+{{ body }}	Original plain\-text body of the message.
+{{ from }}	Full \fBFrom\fR header value.
+{{ from_name }}	Display\-name portion of the \fBFrom\fR address.
+{{ from_email }}	Email\-address portion of the \fBFrom\fR address.
+{{ to }}	Full \fBTo\fR header value.
+{{ to_name }}	Display\-name of the first \fBTo\fR address.
+{{ to_email }}	Email of the first \fBTo\fR address.
+{{ subject }}	\fBSubject\fR header value.
+{{ date }}	\fBDate\fR header value.
+{{ header:\fIname\fR }}	Value of an arbitrary header.
+{{ env:\fIvar\fR }}	Value of an environment variable.
+.TE
+.PP
+The
+.B default
+filter supplies a fallback when a variable is empty:
+.RS
+.IP
+{{ to_name | default(\(dqthere\(dq) }}
+.RE
+.\"
+.SH FILES
+.TP
+.I ~/.config/mailplate/profiles/*.mplt
+User\-specific profile files.
+.TP
+.I /etc/mailplate/profiles/*.mplt
+System\-wide profile files.
+.\"
+.SH EXAMPLES
+.TP
+Apply the \fIwork\fR profile explicitly
+.RS
+mailplate \-\-profile work < draft.eml > rewritten.eml
+.RE
+.TP
+Auto\-detect a profile from the input
+.RS
+mailplate < draft.eml > rewritten.eml
+.RE
+.TP
+Edit a draft in\-place (via temporary output)
+.RS
+mailplate \-\-profile personal \-o draft.eml < draft.eml
+.RE
+.TP
+List available profiles
+.RS
+mailplate \-\-list-profiles
+.RE
+.\"
+.SH EXIT STATUS
+.TP
+0
+Successful completion.
+.TP
+1
+An error occurred (profile not found, no input data, stdin empty,
+etc.).
+.\"
+.SH SEE ALSO
+.BR mutt (1),
+.BR neomutt (1),
+RFC 5322 (Internet Message Format).
+.PP
+Project repository: \(lahttps://github.com/madduck/mailplate\(ra
+.\"
+.SH AUTHOR
+Copyright \(co 2026 Martijn Vermaat \(lamadduck\(ra.
+License MIT.
