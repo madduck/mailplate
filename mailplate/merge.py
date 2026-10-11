@@ -9,7 +9,6 @@ closing, and signature blocks.
 
 from __future__ import annotations
 
-import base64
 import copy
 from email import policy
 from email.message import Message
@@ -21,6 +20,14 @@ from .template import render_template
 
 if TYPE_CHECKING:
     from .profile import Profile
+
+#: Headers that belong to the MIME machinery and are stripped
+#: from the output.
+_MIME_HEADERS = {"mime-version", "content-type", "content-transfer-encoding"}
+
+
+class NotPlainTextError(ValueError):
+    """Raised when the input message is not a plain-text RFC5322 email."""
 
 
 def _strip_prefix(text: str, prefix: str) -> str:
@@ -154,6 +161,37 @@ def _get_body_for_merge(message: Message) -> str:
     return _get_body(message).strip()
 
 
+def _ensure_plain_text(message: Message) -> None:
+    """
+    Validate that the message is a plain-text RFC5322 email.
+
+    Raises:
+        NotPlainTextError: If the message is multipart or has a
+            Content-Type other than ``text/plain``.
+
+    """
+    if message.is_multipart():
+        msg = (
+            "Refusing to process a multipart message; "
+            "mailplate only handles plain-text drafts."
+        )
+        raise NotPlainTextError(msg)
+    ctype = message.get_content_type()
+    if ctype not in ("text/plain", "text/"):
+        msg = (
+            f"Refusing a message with Content-Type {ctype!r}; "
+            "mailplate only handles text/plain drafts."
+        )
+        raise NotPlainTextError(msg)
+
+
+def _strip_mime_headers(message: Message) -> None:
+    """Remove MIME-related headers from the message in-place."""
+    for key in list(message.keys()):
+        if key.lower() in _MIME_HEADERS:
+            del message[key]
+
+
 def merge_profile(message: Message, profile: Profile) -> Message:
     """
     Apply a profile to an email message and return a new message.
@@ -167,7 +205,12 @@ def merge_profile(message: Message, profile: Profile) -> Message:
     Returns:
         A new :class:`Message` with the profile applied.
 
+    Raises:
+        NotPlainTextError: If *message* is not a plain-text draft.
+
     """
+    _ensure_plain_text(message)
+
     # Deep-copy so we don't mutate the original.
     result: Message = copy.deepcopy(message)
 
@@ -182,36 +225,14 @@ def merge_profile(message: Message, profile: Profile) -> Message:
             del result[key]
         result[hdr_name] = hdr_value
 
-    # 2. Build the new body.
+    # 2. Build the new body and set it as a plain string.
     new_body = _build_new_body(result, profile)
+    result.set_payload(new_body)
 
-    # 3. Replace the body payload.
-    if result.is_multipart():
-        _replace_multipart_body(result, new_body)
-    else:
-        result.set_payload(new_body, charset="utf-8")
+    # 3. Strip MIME headers so the output is a plain RFC5322 message.
+    _strip_mime_headers(result)
 
     return result
-
-
-def _replace_multipart_body(message: Message, new_body: str) -> None:
-    """
-    Replace the plain-text part of a multipart message with new body.
-
-    For multipart messages, only the first ``text/plain`` leaf part is
-    replaced; other parts (e.g. ``text/html``, attachments) are left
-    untouched.
-
-    Args:
-        message: A multipart message.
-        new_body: The new plain-text body content.
-
-    """
-    for part in message.walk():
-        if not part.is_multipart() and part.get_content_type() == "text/plain":
-            encoded = base64.b64encode(new_body.encode("utf-8")).decode("ascii")
-            part.set_payload(encoded, charset="utf-8")
-            return
 
 
 def parse_email(data: bytes) -> Message:
@@ -225,7 +246,7 @@ def parse_email(data: bytes) -> Message:
         A parsed :class:`Message`.
 
     """
-    parser = BytesParser(policy=policy.default)
+    parser = BytesParser(policy=policy.compat32)
     return parser.parsebytes(data)
 
 
@@ -240,4 +261,4 @@ def serialize_email(message: Message) -> bytes:
         The RFC5322 bytes.
 
     """
-    return message.as_bytes(policy=policy.default)
+    return message.as_bytes(policy=policy.compat32)

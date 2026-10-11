@@ -6,9 +6,14 @@ import copy
 from email.message import Message
 from pathlib import Path
 
+import pytest
+
 from mailplate.merge import (
+    NotPlainTextError,
     _build_new_body,
+    _ensure_plain_text,
     _get_body_for_merge,
+    _strip_mime_headers,
     _strip_prefix,
     _strip_suffix,
     merge_profile,
@@ -207,6 +212,59 @@ class TestBuildNewBody:
         assert first == second
 
 
+class TestEnsurePlainText:
+    """Tests for _ensure_plain_text."""
+
+    def test_simple_message_passes(self) -> None:
+        """A plain message with no Content-Type passes."""
+        msg = Message()
+        msg["Subject"] = "Test"
+        msg.set_payload("Hello")
+        _ensure_plain_text(msg)  # should not raise
+
+    def test_explicit_text_plain_passes(self) -> None:
+        """A message with Content-Type: text/plain passes."""
+        msg = Message()
+        msg["Content-Type"] = "text/plain"
+        msg.set_payload("Hello")
+        _ensure_plain_text(msg)
+
+    def test_multipart_raises(self) -> None:
+        """A multipart message raises NotPlainTextError."""
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        msg = MIMEMultipart("mixed")
+        msg.attach(MIMEText("body", "plain", "utf-8"))
+        with pytest.raises(NotPlainTextError, match="multipart"):
+            _ensure_plain_text(msg)
+
+    def test_html_raises(self) -> None:
+        """A message with Content-Type text/html raises."""
+        msg = Message()
+        msg["Content-Type"] = "text/html"
+        msg.set_payload("<p>Hello</p>")
+        with pytest.raises(NotPlainTextError, match="text/html"):
+            _ensure_plain_text(msg)
+
+
+class TestStripMimeHeaders:
+    """Tests for _strip_mime_headers."""
+
+    def test_mime_headers_removed(self) -> None:
+        """MIME-Version, Content-Type, CTE are stripped."""
+        msg = Message()
+        msg["Subject"] = "Test"
+        msg["MIME-Version"] = "1.0"
+        msg["Content-Type"] = "text/plain; charset=utf-8"
+        msg["Content-Transfer-Encoding"] = "base64"
+        _strip_mime_headers(msg)
+        assert "Subject" in msg
+        assert "MIME-Version" not in msg
+        assert "Content-Type" not in msg
+        assert "Content-Transfer-Encoding" not in msg
+
+
 class TestMergeProfile:
     """Tests for merge_profile."""
 
@@ -221,6 +279,17 @@ class TestMergeProfile:
         if body:
             msg.set_payload(body)
         return msg
+
+    def test_multipart_raises(self) -> None:
+        """merge_profile raises on multipart input."""
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        msg = MIMEMultipart("mixed")
+        msg.attach(MIMEText("body", "plain", "utf-8"))
+        profile = Profile(name="test", path=Path("test.mplt"))
+        with pytest.raises(NotPlainTextError):
+            merge_profile(msg, profile)
 
     def test_headers_are_set(self) -> None:
         """Profile headers are added to the message."""
@@ -267,9 +336,7 @@ class TestMergeProfile:
             signature=["--", "Me"],
         )
         result = merge_profile(msg, profile)
-        # Decode the payload properly (it may be base64-encoded by the policy).
-        payload = result.get_payload(decode=True)
-        body = payload.decode("utf-8") if isinstance(payload, bytes) else str(payload)
+        body = str(result.get_payload())
         assert "Hi," in body
         assert "Original body" in body
         assert "--" in body
@@ -287,33 +354,14 @@ class TestMergeProfile:
         merge_profile(msg, profile)
         assert msg["Subject"] == original_copy["Subject"]
 
-    def test_multipart_body_replaced(self) -> None:
-        """The plain-text part of a multipart message is replaced."""
-        from email.mime.multipart import MIMEMultipart
-        from email.mime.text import MIMEText
-
-        msg = MIMEMultipart("mixed")
-        msg.attach(MIMEText("Old body", "plain", "utf-8"))
-        msg.attach(MIMEText("<p>Old HTML</p>", "html", "utf-8"))
-        profile = Profile(
-            name="test",
-            path=Path("test.mplt"),
-            greeting=["New greeting"],
-        )
+    def test_output_has_no_mime_headers(self) -> None:
+        """The merged result has no MIME-Version, Content-Type, or CTE."""
+        msg = self._make_message({"Subject": "Test"}, "Body")
+        profile = Profile(name="test", path=Path("test.mplt"))
         result = merge_profile(msg, profile)
-        # The plain-text part should be updated.
-        found_greeting = False
-        for part in result.walk():
-            if not part.is_multipart() and part.get_content_type() == "text/plain":
-                payload = part.get_payload(decode=True)
-                if isinstance(payload, bytes):
-                    body_text = payload.decode(
-                        part.get_content_charset() or "utf-8", errors="replace"
-                    )
-                    if "New greeting" in body_text:
-                        found_greeting = True
-                        break
-        assert found_greeting, "New greeting should be in the plain-text part"
+        assert "MIME-Version" not in result
+        assert "Content-Type" not in result
+        assert "Content-Transfer-Encoding" not in result
 
 
 class TestParseAndSerialize:
@@ -325,8 +373,10 @@ class TestParseAndSerialize:
         msg = parse_email(raw)
         assert msg["Subject"] == "Test"
         result = serialize_email(msg)
-        # After round-trip, headers should match (line endings may vary).
         assert b"Subject: Test" in result
+        assert b"Hello, world!" in result
+        # No MIME headers are introduced.
+        assert b"MIME-Version" not in result
 
     def test_empty_message(self) -> None:
         """An empty message can be parsed."""
