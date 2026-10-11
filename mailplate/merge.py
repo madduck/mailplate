@@ -225,9 +225,10 @@ def merge_profile(message: Message, profile: Profile) -> Message:
             del result[key]
         result[hdr_name] = hdr_value
 
-    # 2. Build the new body and set it as a plain string.
+    # 2. Build the new body and set it as UTF-8 bytes so that
+    #    compat32 serialisation does not force ASCII encoding.
     new_body = _build_new_body(result, profile)
-    result.set_payload(new_body)
+    result.set_payload(new_body.encode("utf-8"))
 
     # 3. Strip MIME headers so the output is a plain RFC5322 message.
     _strip_mime_headers(result)

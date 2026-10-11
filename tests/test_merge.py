@@ -336,7 +336,8 @@ class TestMergeProfile:
             signature=["--", "Me"],
         )
         result = merge_profile(msg, profile)
-        body = str(result.get_payload())
+        payload = result.get_payload()
+        body = payload.decode("utf-8") if isinstance(payload, bytes) else str(payload)
         assert "Hi," in body
         assert "Original body" in body
         assert "--" in body
