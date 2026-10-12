@@ -19,7 +19,66 @@ uv sync
 uv run mailplate --help
 ```
 
-## Usage
+## Usage with Mutt & Co.
+
+While `mailplate` may be useful as a CLI by itself (see "Usage as CLI" below),
+it was primarly designed to integrate with the [Mutt MUA](http://mutt.org/), and
+its descendents, such as [Neomutt](https://neomutt.org/).
+
+### Integrating with `$editor` to auto-detect profile
+
+If your editor is "Vim", then the following integrates `mailplate` with your
+MUA:
+
+```Muttrc
+set edit_headers=yes
+set editor="vim -c '%!mailplate --quiet'"
+```
+
+If you use `vi`, replace with `vi`; If you use Neovim, replace with `nvim`.
+
+You need `$edit_headers` so that Mutt makes an email draft available; Otherwise
+its just a text file, without access to header information.
+
+In the above, Vim will be spawned and the buffer run through `mailplate`,
+causing `mailplate` to analyse the draft, and rewrite it according to the
+profile rules.
+
+### Integrating with Vim for explicit profile selection
+
+If you want to be able to change profiles from within Vim (and descendants), you
+could provide key maps to similarly invoke `mailplate --profile`:
+
+Here is some Lua inspiration for Neovim, to put into `after/ftplugin/mail.lua`:
+
+```Lua
+vim.keymap.set("n", "<leader>p", "", { buffer = true, desc = "mailplate profiles" })
+
+vim.keymap.set(
+  "n",
+  "<leader>pp",
+  ":w<CR>:%!mailplate<CR>",
+  { buffer = true, desc = "Automatically determine mailplate profile" }
+)
+
+local function profile_keymap(key, profile)
+  vim.keymap.set(
+    "n",
+    "<leader>p<" .. key .. ">",
+    ":w<CR>:%!mailplate --profile " .. profile .. "<CR>",
+    { buffer = true, desc = "Switch to mailplate profile '" .. profile .. "'" }
+  )
+end
+
+profile_keymap("F1", "private")
+profile_keymap("F2", "work")
+profile_keymap("F3", "club")
+```
+
+and how if you press `<leader>p<F3>`, the mail draft is changed to the Profile
+you use when doing work for your club.
+
+# Usage as CLI
 
 ### Explicit profile
 
