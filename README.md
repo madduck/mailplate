@@ -135,8 +135,18 @@ are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
     ``body:3 = urgent``
     :   A body rule worth 3 points.
 
-    The profile with the highest total score wins. Use weights to make
-    some rules more important than others during auto-detection.
+    ``X-Spam-Flag:0 = (?P&lt;spam&gt;YES)``
+    :   A rule worth 0 points. It does not affect the score, but its
+        named captures are still available to the template.
+
+    ``X-Spam-Flag:-100 = YES``
+    :   A rule worth -100 points. A sufficiently negative weight stops
+        the profile from being selected whenever the rule matches.
+
+    The profile with the highest total score wins. Use positive weights
+    to make some rules more important than others during auto-detection,
+    a weight of 0 to collect captures without affecting the score, and a
+    negative weight to disqualify a profile when a rule matches.
 
     Named capture groups in a rule&#8217;s regexp become template
     variables under the ``rule:`` namespace.  For example::
