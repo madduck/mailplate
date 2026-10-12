@@ -389,6 +389,81 @@ class TestMergeProfile:
         assert "X-Old" not in result
         assert "X-Obsolete" not in result
 
+    def test_header_order_preserved(self) -> None:
+        """Overriding and adding headers keeps the input header order."""
+        msg = self._make_message(
+            {
+                "Return-Path": "<alice@example.com>",
+                "Subject": "Old",
+                "From": "Alice <alice@example.com>",
+                "To": "Bob <bob@example.com>",
+                "Date": "Thu, 01 Jan 2026 00:00:00 +0000",
+            }
+        )
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            headers={"Subject": "New", "X-Mailer": "mailplate/1.0"},
+        )
+        result = merge_profile(msg, profile)
+        assert list(result.keys()) == [
+            "Return-Path",
+            "Subject",
+            "From",
+            "To",
+            "Date",
+            "X-Mailer",
+        ]
+
+    def test_override_keeps_original_case_and_position(self) -> None:
+        """An overridden header stays where the input put it."""
+        msg = self._make_message(
+            {"From": "Alice <alice@example.com>", "subject": "Old", "To": "Bob"}
+        )
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            headers={"Subject": "New"},
+        )
+        result = merge_profile(msg, profile)
+        assert result["Subject"] == "New"
+        assert list(result.keys()) == ["From", "Subject", "To"]
+
+    def test_duplicate_header_collapsed_at_first_position(self) -> None:
+        """Duplicate overridden headers collapse at the first occurrence."""
+        msg = self._make_message({"From": "Alice", "X-Tag": "first", "To": "Bob"})
+        msg.add_header("X-Tag", "second")
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            headers={"X-Tag": "only"},
+        )
+        result = merge_profile(msg, profile)
+        assert result.get_all("X-Tag") == ["only"]
+        assert list(result.keys()) == ["From", "X-Tag", "To"]
+
+    def test_removal_preserves_order_of_remaining_headers(self) -> None:
+        """Removing a header does not reorder the remaining ones."""
+        msg = self._make_message({"A": "1", "X-Old": "gone", "B": "2", "C": "3"})
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            remove_headers=["X-Old"],
+        )
+        result = merge_profile(msg, profile)
+        assert list(result.keys()) == ["A", "B", "C"]
+
+    def test_header_added_when_absent_appended(self) -> None:
+        """A profile header not in the input is appended at the end."""
+        msg = self._make_message({"From": "Alice", "To": "Bob"})
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            headers={"X-One": "1", "X-Two": "2"},
+        )
+        result = merge_profile(msg, profile)
+        assert list(result.keys()) == ["From", "To", "X-One", "X-Two"]
+
     def test_header_value_template(self) -> None:
         """Header values are rendered through the template engine."""
         msg = self._make_message(

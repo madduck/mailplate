@@ -232,6 +232,76 @@ def _strip_mime_headers(message: Message) -> None:
             del message[key]
 
 
+def _apply_headers(
+    message: Message,
+    original: Message,
+    profile: Profile,
+    captures: dict[str, str],
+) -> None:
+    """
+    Apply profile headers to *message* in-place, preserving input order.
+
+    Existing headers keep their original position even when the profile
+    overrides their value.  If the input repeats a header that the
+    profile overrides, the duplicates are collapsed into a single value
+    at the position of the first occurrence.  Headers that are not
+    present in the input are appended in profile order.  Headers listed
+    in ``profile.remove_headers`` are dropped.
+
+    Header values are rendered through the template engine so that
+    placeholders like ``{{ subject }}``, ``{{ header:X-Custom }}``, or
+    ``{{ helper:get_quote }}`` are expanded.  Rendering is evaluated
+    against *original* so that placeholders refer to the untouched
+    input rather than values already overridden.
+
+    Args:
+        message: The message to modify in-place.
+        original: The untouched input used as template context.
+        profile: The profile whose headers to apply.
+        captures: Named capture groups from matching rules.
+
+    """
+    # Render every profile header up-front, keyed by lower-case name so
+    # that lookups are case-insensitive.
+    rendered: dict[str, tuple[str, str]] = {}
+    for name, value in profile.headers.items():
+        rendered[name.lower()] = (
+            name,
+            render_template(value, original, profile.helpers, captures=captures),
+        )
+
+    removed = {name.lower() for name in profile.remove_headers}
+
+    # Walk the original headers in order, substituting overrides in place
+    # and dropping duplicates of an overridden header.
+    ordered: list[tuple[str, str]] = []
+    replaced: set[str] = set()
+    for name, value in original.items():
+        lower = name.lower()
+        if lower in removed:
+            continue
+        if lower in rendered:
+            if lower in replaced:
+                continue
+            name, value = rendered[lower]
+            replaced.add(lower)
+        ordered.append((name, value))
+
+    # Append profile headers that were absent from the input, in the
+    # order in which they appear in the profile.
+    for lower, (name, value) in rendered.items():
+        if lower not in replaced:
+            ordered.append((name, value))
+
+    # The public API cannot reorder existing headers, so rebuild the
+    # header list: clear every header, then re-insert in the desired
+    # order.  The payload is left untouched.
+    for key in {name.lower() for name in message}:
+        del message[key]
+    for name, value in ordered:
+        message[name] = value
+
+
 def merge_profile(
     message: Message, profile: Profile, captures: dict[str, str] | None = None
 ) -> Message:
@@ -258,29 +328,13 @@ def merge_profile(
     # Deep-copy so we don't mutate the original.
     result: Message = copy.deepcopy(message)
 
-    # 1. Set/override headers from the profile.  Header values are
-    #    rendered through the template engine so that placeholders
-    #    like {{ subject }}, {{ header:X-Custom }}, or
+    # 1. Set/override/remove headers from the profile, preserving the
+    #    order in which the input declared them.  Header values are
+    #    rendered through the template engine so that placeholders like
+    #    {{ subject }}, {{ header:X-Custom }}, or
     #    {{ helper:get_quote }} are expanded.
     captures = captures or {}
-    for hdr_name, hdr_value in profile.headers.items():
-        rendered = render_template(
-            hdr_value, message, profile.helpers, captures=captures
-        )
-        keys_to_replace: list[str] = [
-            key for key in result if key.lower() == hdr_name.lower()
-        ]
-        for key in keys_to_replace:
-            del result[key]
-        result[hdr_name] = rendered
-
-    # 1b. Remove headers listed in the profile.
-    for rm_name in profile.remove_headers:
-        keys_to_remove: list[str] = [
-            key for key in result if key.lower() == rm_name.lower()
-        ]
-        for key in keys_to_remove:
-            del result[key]
+    _apply_headers(result, message, profile, captures)
 
     # 2. Build the new body and set it as UTF-8 bytes so that
     #    compat32 serialisation does not force ASCII encoding.
