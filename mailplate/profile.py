@@ -56,18 +56,18 @@ class Rule:
         value: The value to match against.  For ``header`` rules this is
             the canonical ``headername: regex`` form, with the field
             name lower-cased so that it is case-insensitive; for
-            ``body`` rules it is a plain regex.
+            ``body`` and ``rcpt`` rules it is a plain regex.
         weight: How many points this rule contributes when it matches.
 
     """
 
-    kind: Literal["header", "body"]
+    kind: Literal["header", "body", "rcpt"]
     value: str
     weight: int = 1
 
     def __post_init__(self) -> None:
         """Validate the rule kind."""
-        if self.kind not in ("header", "body"):
+        if self.kind not in ("header", "body", "rcpt"):
             msg = f"Unknown rule kind: {self.kind!r}"
             raise ProfileError(msg)
         if self.weight < 1:
@@ -124,7 +124,9 @@ def _parse_rule_line(line: str) -> Rule | None:
     names are case-insensitive and are normalised to lower case.  Body
     rules use the reserved field name ``body``, e.g. ``body = regexp``
     or ``body:3 = regexp``; ``body`` is recognised case-insensitively
-    too.  The weight defaults to 1.
+    too.  The reserved field name ``rcpt`` matches against all of the
+    To/Cc/Bcc headers at once, e.g. ``rcpt = regexp`` or ``rcpt:2 =
+    regexp``.  The weight defaults to 1.
 
     Args:
         line: A line from the ``[rules]`` section.
@@ -145,6 +147,10 @@ def _parse_rule_line(line: str) -> Rule | None:
         weight = int(weight_str) if weight_str else 1
         if field == "body":
             return Rule(kind="body", value=value, weight=weight)
+        if field == "rcpt":
+            # ``rcpt`` matches the To/Cc/Bcc headers (see
+            # mailplate.rules); the value is a plain regex.
+            return Rule(kind="rcpt", value=value, weight=weight)
         if field == "header":
             # ``header`` is not a header rule anymore; it was the keyword
             # of the old syntax.  Fail loudly rather than silently

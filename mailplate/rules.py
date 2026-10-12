@@ -62,6 +62,25 @@ def _get_body(message: Message) -> str:
     return ""  # pragma: no cover
 
 
+def _get_rcpt_values(message: Message) -> list[str]:
+    """
+    Return the values of all To/Cc/Bcc headers of a message.
+
+    Args:
+        message: The parsed email message.
+
+    Returns:
+        The header values, in To/Cc/Bcc order; empty strings are
+        omitted.
+
+    """
+    return [
+        value
+        for header_name in ("To", "Cc", "Bcc")
+        if (value := message.get(header_name, ""))
+    ]
+
+
 def _match_rule(rule: Rule, message: Message) -> bool:
     """
     Check whether a single rule matches the given message.
@@ -87,7 +106,17 @@ def _match_rule(rule: Rule, message: Message) -> bool:
         except re.error:
             return False
 
-    # rule.kind is Literal["header", "body"] so this handles "body".
+    if rule.kind == "rcpt":
+        # The rule applies if the regex matches any of the To/Cc/Bcc
+        # headers.
+        try:
+            return any(
+                re.search(rule.value, value) for value in _get_rcpt_values(message)
+            )
+        except re.error:
+            return False
+
+    # rule.kind is Literal["header", "body", "rcpt"] so this handles "body".
     body = _get_body(message)
     try:
         return bool(re.search(rule.value, body))
@@ -124,6 +153,18 @@ def _match_rule_captures(rule: Rule, message: Message) -> dict[str, str]:
         if not m:
             return {}
         return {k: v for k, v in m.groupdict().items() if v is not None}
+
+    if rule.kind == "rcpt":
+        # The rule applies if the regex matches any of the To/Cc/Bcc
+        # headers; captures are taken from the first matching header.
+        for value in _get_rcpt_values(message):
+            try:
+                m = re.search(rule.value, value)
+            except re.error:
+                return {}
+            if m:
+                return {k: v for k, v in m.groupdict().items() if v is not None}
+        return {}
 
     body = _get_body(message)
     try:

@@ -114,7 +114,9 @@ MIME headers (no ``MIME-Version``, ``Content-Type``, or
     semantics). A rule can carry an optional weight by suffixing the
     field name with ``:weight``; the weight influences profile scoring
     and defaults to 1. Field names are matched case-insensitively. The
-    field name ``body`` is reserved for the body rule. The old
+    field name ``body`` is reserved for the body rule, and ``rcpt`` for
+    a rule matching against all of the To/Cc/Bcc headers at once (it
+    applies if the regex matches any one of them). The old
     ``header = HeaderName: regex`` form (and its weighted variant) is no
     longer accepted.
 
