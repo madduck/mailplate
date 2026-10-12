@@ -288,6 +288,20 @@ closing lines.
 mailplate --version
 ```
 
+## Man page
+
+The manual page is written in POD in `mailplate.pod`. `uv build` renders
+it to `mailplate.1` with `pod2man` and installs it under
+`share/man/man1/` in the wheel. The generated `mailplate.1` is a build
+artefact and is not tracked by Git.
+
+To render and preview the man page without building the package:
+
+```sh
+pod2man --section=1 --center="User Commands" --release=mailplate \
+    --name=mailplate mailplate.pod | man -l -
+```
+
 ## Migration
 
 If you have existing profiles from an older version of mailplate, a
