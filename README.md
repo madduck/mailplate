@@ -70,7 +70,7 @@ mailplate --output draft.eml < draft.eml
 
 Profiles are flat text files with a `.mplt` extension, stored in
 `~/.config/mailplate/profiles/` or `/etc/mailplate/profiles/`
-(extra directories can be added with `--profile-dir`).  Profile
+(extra directories can be added with `--profile-dir`). Profile
 directories are scanned recursively, so profiles may also live in
 subdirectories and are treated identically wherever they are found.
 Settings shared between profiles can be placed in a file named
@@ -105,9 +105,9 @@ My Company Inc.
 
 mailplate only handles **plain‑text** drafts — messages that contain
 anything other than ``text/plain`` (e.g. HTML parts, attachments) are
-rejected with an error.  The output is a bare RFC 5322 message without
+rejected with an error. The output is a bare RFC 5322 message without
 MIME headers (no ``MIME-Version``, ``Content-Type``, or
-``Content-Transfer-Encoding``).  Non‑ASCII characters in header bodies
+``Content-Transfer-Encoding``). Non‑ASCII characters in header bodies
 are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
 
 ### Sections
@@ -137,7 +137,7 @@ are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
     ``body:3 = urgent``
     :   A body rule worth 3 points.
 
-    ``X-Spam-Flag:0 = (?P&lt;spam&gt;YES)``
+    ``X-Spam-Flag:0 = (?P<spam>YES)``
     :   A rule worth 0 points. It does not affect the score, but its
         named captures are still available to the template.
 
@@ -150,11 +150,11 @@ are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
     affecting the score, and a negative weight to disqualify a profile
     when a rule matches.
 
-    Named capture groups in a rule&#8217;s regexp become template
-    variables under the ``rule:`` namespace.  For example::
+    Named capture groups in a rule’s regexp become template
+    variables under the ``rule:`` namespace. For example::
 
         [rules]
-        From = .*@(?P&lt;domain&gt;[a-z0-9.]+)
+        From = .*@(?P<domain>[a-z0-9.]+)
 
     makes ``{{ rule:domain }}`` available in greeting, closing,
     signature, and header values. Rules are evaluated for named
@@ -186,7 +186,7 @@ are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
 
     If the original draft already contains a signature (i.e. text
     following a ``^-- $`` line), that signature is replaced by the
-    profile&#8217;s ``[signature]`` section. If the profile does not
+    profile’s ``[signature]`` section. If the profile does not
     define a ``[signature]`` section, the original draft signature
     is preserved unchanged.
 
@@ -201,7 +201,7 @@ are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
 :   External command definitions. Each line is ``name = shell command``.
     The command is invoked with :func:`shlex.split` and :func:`subprocess.run`
     with a 5‑second timeout. Use ``{{ helper:<name> }}`` in template
-    sections to insert the command&#8217;s stdout::
+    sections to insert the command’s stdout::
 
         [helpers]
         get_quote    = fortune -n2
@@ -213,7 +213,7 @@ Comments start with `#` and blank lines are ignored.
 
 A file named exactly `INCLUDE` (with no extension) in a profile
 directory provides settings that are automatically applied to every
-profile in that directory and its subdirectories.  When
+profile in that directory and its subdirectories. When
 `foo/bar/prof.mplt` is loaded, the INCLUDE files are applied in order
 from least to most specific — the root-level `INCLUDE`, then
 `foo/INCLUDE`, then `foo/bar/INCLUDE` — followed by the profile itself.
@@ -222,9 +222,9 @@ must not contain a `[profile]` section.
 
 `[rules]`, `[headers]`, `[helpers]`, and `[remove_headers]` accumulate
 across all files; the more specific file wins on a name collision, and
-verbatim duplicate rules are kept only once.  `[greeting]`,
+verbatim duplicate rules are kept only once. `[greeting]`,
 `[closing]`, and `[signature]` are single‑valued: the most specific
-file that defines the section wins.  An explicitly empty section (for
+file that defines the section wins. An explicitly empty section (for
 example a `[signature]` header with no lines) clears an inherited one.
 
 `INCLUDE` files are not listed by `--list-profiles` and cannot be
@@ -294,7 +294,7 @@ uv run python3 scripts/migrate_templates.py
 
 This reads templates from ``~/.mailplate/templates/`` and the helper
 configuration from ``~/.mailplate/config`` and writes ``.mplt`` files
-to the project&#8217;s ``profiles/`` directory. After migration, copy
+to the project’s ``profiles/`` directory. After migration, copy
 them to ``~/.config/mailplate/profiles/`` or point ``--profile-dir`` at
 the output directory.
 

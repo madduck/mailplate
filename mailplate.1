@@ -39,7 +39,7 @@ does not RFC 2047\-encode them.
 .BR \-p ", " \-\-profile " " \fINAME\fR
 Apply the profile identified by \fINAME\fR (the filename stem, the path
 relative to the scanned directory for profiles in subdirectories, or
-the display name).  When this option is omitted,
+the display name). When this option is omitted,
 .B mailplate
 auto\-detects the best matching profile by evaluating each profile's
 rules against the message and selecting the one with the most matches.
@@ -52,15 +52,15 @@ selection rationale.
 .TP
 .BR \-d ", " \-\-profile-dir " " \fIDIR\fR
 Add \fIDIR\fR to the list of directories scanned for profile files.
-May be specified more than once.  Extra directories take precedence over
-the default search paths.  Directories are scanned recursively, so
+May be specified more than once. Extra directories take precedence over
+the default search paths. Directories are scanned recursively, so
 profiles in subdirectories are found as well.
 .TP
 .BR \-o ", " \-\-output " " \fIFILE\fR
 Write the transformed message to \fIFILE\fR instead of standard output.
 .TP
 .BR \-l ", " \-\-list-profiles
-List all available profiles and exit.  Each line shows the identifier
+List all available profiles and exit. Each line shows the identifier
 (the filename stem, or the path relative to the scanned directory for
 profiles in subdirectories, used with \fB\-p\fR) and the display name.
 .TP
@@ -73,18 +73,18 @@ Print the program version and exit.
 .SH PROFILE FORMAT
 Profiles are flat text files with a
 .B .mplt
-extension.  The format is INI\-like with sections delimited by
+extension. The format is INI\-like with sections delimited by
 .BR [square\ brackets] .
 Comments start with
 .B #
 and blank lines are ignored.
 .PP
 .IP \fB[profile]\fR 18
-Profile metadata.  The only recognised field is
+Profile metadata. The only recognised field is
 .BR name .
 If absent, the filename stem is used as the display name.
 .IP \fB[rules]\fR 18
-Auto\-detection rules.  Each line has the form
+Auto\-detection rules. Each line has the form
 .RS
 .IP \[bu]
 \fIHeaderName\fR = \fIregex\fR
@@ -102,11 +102,11 @@ Auto\-detection rules.  Each line has the form
 .IP
 The optional
 .I weight
-defaults to 1 and influences auto\-detection scoring.  It may be zero,
+defaults to 1 and influences auto\-detection scoring. It may be zero,
 in which case the rule still contributes its named captures but adds
 nothing to the score, or negative, in which case it subtracts points
 and a sufficiently negative rule can stop its profile from being
-selected.  Field names are matched case\-insensitively.  The field name
+selected. Field names are matched case\-insensitively. The field name
 .B body
 is reserved for the body rule; the field name
 .B rcpt
@@ -121,14 +121,14 @@ The old
 form is no longer accepted.
 .IP
 Each rule is matched independently: every matching rule adds its weight
-to the profile's score, while a non\-matching rule adds nothing.  The
+to the profile's score, while a non\-matching rule adds nothing. The
 profile with the highest total score wins, provided that score is at
 least 1.
 .IP
 Named capture groups in a rule's regexp become template variables in
 the
 .B rule:
-namespace.  For example, the rule
+namespace. For example, the rule
 .RS
 .IP
 .B From = .*@(?P<domain>[a-z0-9.]+)
@@ -142,7 +142,7 @@ available in the
 .BR [closing] ,
 and
 .B [signature]
-sections.  Rules are evaluated for named captures both during
+sections. Rules are evaluated for named captures both during
 auto\-detection and when a profile is selected explicitly with
 .BR \-\-profile .
 .IP \fB[headers]\fR 18
@@ -154,8 +154,8 @@ reference other headers via
 .B {{ header:<Name> }}
 as well as the shorthand variables listed below.
 .IP \fB[greeting]\fR 18
-Lines inserted before the original body.  A blank line after the
-greeting is provided automatically.  Template variables are expanded.
+Lines inserted before the original body. A blank line after the
+greeting is provided automatically. Template variables are expanded.
 .IP \fB[closing]\fR 18
 Lines inserted after the original body but before the signature.
 Template variables are expanded.
@@ -163,14 +163,14 @@ Template variables are expanded.
 Lines appended at the end of the message, separated from the closing
 by a
 .B "-- "
-delimiter line.  Template variables are expanded.  If the original
+delimiter line. Template variables are expanded. If the original
 draft already contains a signature (text following a
 .B "-- "
 line), it is replaced by this section; if no
 .B [signature]
 section is defined, the original signature is preserved unchanged.
 .IP \fB[remove_headers]\fR 18
-One header name per line.  Matching headers (case\-insensitive) are
+One header name per line. Matching headers (case\-insensitive) are
 deleted from the output, after
 .B [headers]
 have been applied.
@@ -179,10 +179,10 @@ External command definitions in the form
 .BI "name = " "shell command" .
 The command is split with
 .B shlex.split
-and run without a shell, with a five\-second timeout.  Its standard
+and run without a shell, with a five\-second timeout. Its standard
 output can be inserted with
 .B {{ helper:<name> }}
-in any template section.  For example:
+in any template section. For example:
 .RS
 .IP
 .nf
@@ -197,7 +197,7 @@ get_long_date = date '+\&%d \&%B \&%Y'
 A file named exactly
 .B INCLUDE
 (no extension) in a profile directory is applied automatically to every
-profile in that directory and its subdirectories.  When
+profile in that directory and its subdirectories. When
 .I foo/bar/prof.mplt
 is loaded, the root\-level
 .BR INCLUDE ,
@@ -205,7 +205,7 @@ is loaded, the root\-level
 and
 .I foo/bar/INCLUDE
 are applied in that order (least specific first), followed by the
-profile itself.  An
+profile itself. An
 .B INCLUDE
 file uses the same format as a profile but must not contain a
 .B [profile]
@@ -231,7 +231,7 @@ section wins, and an explicitly empty section clears an inherited one.
 .br
 If the body already starts with the rendered greeting and/or ends with
 the rendered closing+signature block, those are stripped before the
-fresh decorations are applied.  Running
+fresh decorations are applied. Running
 .B mailplate
 multiple times with the same profile therefore does not keep piling on
 extra greeting or closing lines.
