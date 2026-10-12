@@ -327,6 +327,32 @@ class TestMainCommand:
         assert "Best,\nAlice" in body
         assert "--\nalice@example.com" in body
 
+    def test_signature_preserves_blank_lines(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Blank lines inside a profile signature survive to the output."""
+        from email import policy
+        from email.parser import BytesParser
+
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "test.mplt").write_text(
+            "[profile]\nname = Test\n[signature]\nAlice\n\nMy Company Inc.\n",
+            encoding="utf-8",
+        )
+        result = cli_runner.invoke(
+            main,
+            args=["--profile", "test", "--profile-dir", str(profile_dir)],
+            input=EMAIL_HEADERS,
+        )
+        assert result.exit_code == 0
+        parser = BytesParser(policy=policy.default)
+        parsed = parser.parsebytes(result.stdout_bytes)
+        body_payload = parsed.get_payload(decode=True)
+        assert isinstance(body_payload, bytes)
+        body = body_payload.decode("utf-8")
+        assert "-- \nAlice\n\nMy Company Inc." in body
+
     def test_explicit_profile_collects_captures(
         self, cli_runner: CliRunner, tmp_path: Path
     ) -> None:
