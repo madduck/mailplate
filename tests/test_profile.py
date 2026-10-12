@@ -35,6 +35,11 @@ class TestRule:
         with pytest.raises(ProfileError, match="Unknown rule kind"):
             Rule(kind="invalid", value="x")  # type: ignore[arg-type]
 
+    def test_weight_below_one_raises(self) -> None:
+        """A rule weight below one raises ProfileError."""
+        with pytest.raises(ProfileError, match="Rule weight must be >= 1"):
+            Rule(kind="body", value="urgent", weight=0)
+
 
 class TestParseRuleLine:
     """Tests for _parse_rule_line."""
@@ -86,6 +91,11 @@ class TestParseRuleLine:
         assert result.kind == "body"
         assert result.value == "urgent"
         assert result.weight == 3
+
+    def test_weight_below_one_rejected(self) -> None:
+        """A parsed rule weight below one raises ProfileError."""
+        with pytest.raises(ProfileError, match="Rule weight must be >= 1"):
+            _parse_rule_line("From:0 = .*@example\\.com")
 
     def test_no_match(self) -> None:
         """A line without a rule pattern returns None."""
