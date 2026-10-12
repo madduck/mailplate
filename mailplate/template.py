@@ -45,7 +45,8 @@ import os
 import re
 import shlex
 
-# nosec: B404 — it is safe to use subprocess as commands are all user-supplied
+# The command is split with shlex.split and run without a shell, so commands
+# from user-supplied profiles cannot be interpreted by a shell.
 import subprocess  # nosec: B404
 from email.message import Message
 from email.utils import getaddresses, parseaddr
@@ -163,7 +164,7 @@ def _run_helper(command: str) -> str:
     """
     try:
         args = shlex.split(command)
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603
             args,
             check=False,
             capture_output=True,
