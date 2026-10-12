@@ -5,7 +5,12 @@ from __future__ import annotations
 from email.message import Message
 
 from mailplate.profile import Profile, Rule
-from mailplate.rules import _get_body, _get_header_value, profile_matches
+from mailplate.rules import (
+    _decode_header_value,
+    _get_body,
+    _get_header_value,
+    profile_matches,
+)
 
 
 class TestGetHeaderValue:
@@ -27,6 +32,41 @@ class TestGetHeaderValue:
         msg = Message()
         msg["FROM"] = "alice@example.com"
         assert _get_header_value(msg, "From") == "alice@example.com"
+
+    def test_encoded_header_is_decoded(self) -> None:
+        """An RFC 2047 encoded header is returned as plain text."""
+        msg = Message()
+        msg["Subject"] = "=?utf-8?q?Uml=C3=A4ut?="
+        assert _get_header_value(msg, "Subject") == "Umläut"
+
+    def test_raw_8bit_header_is_decoded(self) -> None:
+        """A surrogate-escaped raw 8-bit header is decoded as UTF-8."""
+        msg = Message()
+        raw = "Umläut".encode().decode("ascii", "surrogateescape")
+        msg["Subject"] = raw
+        assert _get_header_value(msg, "Subject") == "Umläut"
+
+
+class TestDecodeHeaderValue:
+    """Tests for _decode_header_value."""
+
+    def test_ascii_value(self) -> None:
+        """A plain ASCII value is returned unchanged."""
+        assert _decode_header_value("Hello") == "Hello"
+
+    def test_rfc2047_value(self) -> None:
+        """An RFC 2047 encoded word is decoded."""
+        assert _decode_header_value("=?utf-8?q?Uml=C3=A4ut?=") == "Umläut"
+
+    def test_raw_8bit_value(self) -> None:
+        """Surrogate-escaped bytes are decoded as UTF-8."""
+        raw = "Umläut".encode().decode("ascii", "surrogateescape")
+        assert _decode_header_value(raw) == "Umläut"
+
+    def test_trailing_surrogates(self) -> None:
+        """A value ending in surrogate escapes is decoded fully."""
+        raw = "Umlä".encode().decode("ascii", "surrogateescape")
+        assert _decode_header_value(raw) == "Umlä"
 
 
 class TestGetBody:

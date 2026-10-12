@@ -545,3 +545,77 @@ class TestParseAndSerialize:
         msg = parse_email(raw)
         assert msg["Subject"] == "Test"
         assert msg["From"] == "a@b.com"
+
+
+class TestUtf8HeaderOutput:
+    """Non-ASCII header bodies are written verbatim as UTF-8."""
+
+    def test_parsed_header_roundtrip_is_utf8(self) -> None:
+        """A parsed non-ASCII header is not RFC 2047-encoded on output."""
+        raw = "Subject: Umläut\n\nBody\n".encode()
+        msg = parse_email(raw)
+        result = serialize_email(msg)
+        assert b"Subject: Uml\xc3\xa4ut" in result
+        assert b"=?" not in result
+
+    def test_existing_header_stays_utf8_after_merge(self) -> None:
+        """A non-overridden header keeps its raw UTF-8 value after merging."""
+        raw = ("Subject: Umläut\nTo: Jörg <joerg@example.com>\n\nBody\n").encode()
+        msg = parse_email(raw)
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            headers={"X-Mailer": "mailplate"},
+        )
+        result = serialize_email(merge_profile(msg, profile))
+        assert b"Subject: Uml\xc3\xa4ut" in result
+        assert b"=?" not in result
+
+    def test_profile_header_is_utf8(self) -> None:
+        """A non-ASCII profile header is written as plain UTF-8."""
+        msg = parse_email(b"Subject: Test\n\nBody\n")
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            headers={"X-Accent": "café"},
+        )
+        result = serialize_email(merge_profile(msg, profile))
+        assert b"X-Accent: caf\xc3\xa9" in result
+        assert b"=?" not in result
+
+    def test_template_substitution_is_utf8(self) -> None:
+        """A non-ASCII value substituted into a header stays UTF-8."""
+        raw = "Subject: Umläut\n\nBody\n".encode()
+        msg = parse_email(raw)
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            headers={"X-Orig": "{{ subject }}"},
+        )
+        result = serialize_email(merge_profile(msg, profile))
+        assert b"X-Orig: Uml\xc3\xa4ut" in result
+        assert b"=?" not in result
+
+    def test_rfc2047_header_is_decoded(self) -> None:
+        """An RFC 2047 encoded input header is output as plain UTF-8."""
+        raw = b"Subject: =?utf-8?q?Uml=C3=A4ut?=\n\nBody\n"
+        result = serialize_email(parse_email(raw))
+        assert b"Subject: Uml\xc3\xa4ut" in result
+        assert b"=?" not in result
+
+    def test_structured_headers_are_not_normalised(self) -> None:
+        """Merging preserves the raw form of address and date headers."""
+        raw = (
+            b"Date: Thu, 01 Jan 2026 00:00:00 +0000 (UTC)\n"
+            b"From: john(comment)@example.com\n"
+            b"\nBody\n"
+        )
+        msg = parse_email(raw)
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            headers={"X-Test": "1"},
+        )
+        result = serialize_email(merge_profile(msg, profile))
+        assert b"Date: Thu, 01 Jan 2026 00:00:00 +0000 (UTC)" in result
+        assert b"From: john(comment)@example.com" in result

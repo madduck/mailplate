@@ -257,6 +257,26 @@ class TestMainCommand:
         assert "Best,\nAlice" in body
         assert "--\nalice@example.com" in body
 
+    def test_non_ascii_header_written_as_utf8(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Non-ASCII header bodies are written verbatim as UTF-8."""
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "test.mplt").write_text(
+            "[profile]\nname = Test\n\n[headers]\nX-Mailer = mailplate\n",
+            encoding="utf-8",
+        )
+        raw = "Subject: Umläut\n\nBody\n".encode()
+        result = cli_runner.invoke(
+            main,
+            args=["--profile", "test", "--profile-dir", str(profile_dir)],
+            input=raw,
+        )
+        assert result.exit_code == 0
+        assert "Subject: Umläut".encode() in result.stdout_bytes
+        assert b"=?" not in result.stdout_bytes
+
     def test_explicit_nested_profile_success(
         self, cli_runner: CliRunner, tmp_path: Path
     ) -> None:
