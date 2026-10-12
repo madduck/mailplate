@@ -10,8 +10,8 @@ Profiles are stored as flat text files in a directory (typically
 
     [rules]
     # All rules must match for auto-detection (AND logic).
-    header = From:.*@company\\.com
-    header = List-Id:.*lists\\.company\\.com
+    From = .*@company\\.com
+    List-Id = .*lists\\.company\\.com
     body = \\[company-internal\\]
 
     [headers]
@@ -53,8 +53,9 @@ class Rule:
 
     Attributes:
         kind: What aspect of the email to inspect.
-        value: The value to match against (e.g. ``HeaderName: regex``
-            for ``header`` rules, or a plain regex for ``body`` rules).
+        value: The value to match against.  For ``header`` rules this is
+            the canonical ``HeaderName: regex`` form; for ``body`` rules
+            it is a plain regex.
         weight: How many points this rule contributes when it matches.
 
     """
@@ -106,7 +107,10 @@ class Profile:
 
 
 _SECTION_PATTERN = re.compile(r"^\[(\w+)\]\s*$")
-_RULE_LINE_PATTERN = re.compile(r"^(header|body)(?::(\d+))?\s*=\s*(.+)$")
+#: A rule line: ``HeaderName[:weight] = regexp`` or ``body[:weight] = regexp``.
+_RULE_LINE_PATTERN = re.compile(
+    r"^(?P<name>[^=:\s]+)(?::(?P<weight>\d+))?\s*=\s*(?P<value>.*)$"
+)
 _HEADER_LINE_PATTERN = re.compile(r"^(.+?)\s*=\s*(.*)$")
 
 
@@ -114,20 +118,41 @@ def _parse_rule_line(line: str) -> Rule | None:
     """
     Try to parse a single rule line.
 
+    Header rules use the field name as the key, optionally suffixed with
+    a weight, e.g. ``From = regexp`` or ``From:5 = regexp``.  Body rules
+    use the reserved field name ``body``, e.g. ``body = regexp`` or
+    ``body:3 = regexp``.  The weight defaults to 1.
+
     Args:
         line: A line from the ``[rules]`` section.
 
     Returns:
         A :class:`Rule` instance, or ``None`` if the line does not match.
 
+    Raises:
+        ProfileError: If the removed ``header = ...`` syntax is used.
+
     """
     if match := _RULE_LINE_PATTERN.match(line):
-        kind_str = match.group(1)
-        weight_str = match.group(2)
-        value = match.group(3).strip()
-        kind: Literal["header", "body"] = kind_str  # type: ignore[assignment]
+        name = match.group("name")
+        weight_str = match.group("weight")
+        value = match.group("value").strip()
         weight = int(weight_str) if weight_str else 1
-        return Rule(kind=kind, value=value, weight=weight)
+        if name.lower() == "body":
+            return Rule(kind="body", value=value, weight=weight)
+        if name.lower() == "header":
+            # ``header`` is not a header rule anymore; it was the keyword
+            # of the old syntax.  Fail loudly rather than silently
+            # treating it as a rule on a header literally named
+            # "header".
+            msg = (
+                "The old 'header = HeaderName: regex' rule syntax is no "
+                "longer supported; write 'HeaderName = regex' instead."
+            )
+            raise ProfileError(msg)
+        # Header rules keep the canonical ``HeaderName: regex`` form used
+        # internally by the matching engine (see mailplate.rules).
+        return Rule(kind="header", value=f"{name}: {value}".strip(), weight=weight)
     return None
 
 

@@ -181,7 +181,7 @@ class TestMainCommand:
             profiles_dir = Path(tmp) / "profiles"
             profiles_dir.mkdir()
             (profiles_dir / "nomatch.mplt").write_text(
-                "[profile]\nname = Nomatch\n\n[rules]\nheader = X-Custom: no-way\n",
+                "[profile]\nname = Nomatch\n\n[rules]\nX-Custom = no-way\n",
                 encoding="utf-8",
             )
             result = cli_runner.invoke(
@@ -320,7 +320,7 @@ class TestMainCommand:
 name = Work
 
 [rules]
-header = From:.*@company\\.com
+From = .*@company\\.com
 
 [headers]
 X-Profile = work
@@ -331,7 +331,7 @@ X-Profile = work
 name = Personal
 
 [rules]
-header = From:.*@personal\\.com
+From = .*@personal\\.com
 
 [headers]
 X-Profile = personal
@@ -358,7 +358,7 @@ X-Profile = personal
 name = Nomatch
 
 [rules]
-header = X-Custom: will-never-match
+X-Custom = will-never-match
 """
         (profile_dir / "nomatch.mplt").write_text(non_matching, encoding="utf-8")
         email = b"From: alice@other.com\r\n\r\nHello\r\n"

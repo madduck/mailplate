@@ -76,8 +76,8 @@ name = Work
 
 [rules]
 # All rules must match (AND logic).
-header = From:.*@company\.com
-body   = \[internal\]
+From = .*@company\.com
+body = \[internal\]
 
 [headers]
 X-Mailer = mailplate/1.0
@@ -108,12 +108,16 @@ MIME headers (no ``MIME-Version``, ``Content-Type``, or
     If absent the filename stem is used.
 
 `[rules]`
-:   Auto‑detection rules. Each line is ``header = HeaderName: regex`` or
-    ``body = regex``. All rules inside a profile must match for the
-    profile to be selected (AND semantics). Rules can carry an optional
-    weight that influences profile scoring.
+:   Auto‑detection rules. Each line is ``HeaderName = regex`` for a
+    header rule or ``body = regex`` for the message body. All rules
+    inside a profile must match for the profile to be selected (AND
+    semantics). A rule can carry an optional weight by suffixing the
+    field name with ``:weight``; the weight influences profile scoring
+    and defaults to 1. The field name ``body`` is reserved for the body
+    rule. The old ``header = HeaderName: regex`` form (and its weighted
+    variant) is no longer accepted.
 
-    ``header:5 = From:.*@company\\.com``
+    ``From:5 = .*@company\\.com``
     :   A header rule worth 5 points instead of the default 1.
 
     ``body:3 = urgent``
@@ -126,7 +130,7 @@ MIME headers (no ``MIME-Version``, ``Content-Type``, or
     variables under the ``rule:`` namespace.  For example::
 
         [rules]
-        header = From:.*@(?P&lt;domain&gt;[a-z0-9.]+)
+        From = .*@(?P&lt;domain&gt;[a-z0-9.]+)
 
     makes ``{{ rule:domain }}`` available in greeting, closing,
     signature, and header values.

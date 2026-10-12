@@ -69,10 +69,22 @@ If absent, the filename stem is used as the display name.
 Auto\-detection rules.  Each line has the form
 .RS
 .IP \[bu]
-\fBheader =\fR \fIHeaderName\fR:\fIregex\fR
+\fIHeaderName\fR = \fIregex\fR
 .IP \[bu]
-\fBbody =\fR \fIregex\fR
+\fIHeaderName\fR:\fIweight\fR = \fIregex\fR
+.IP \[bu]
+\fBbody\fR = \fIregex\fR
+.IP \[bu]
+\fBbody\fR:\fIweight\fR = \fIregex\fR
 .RE
+.IP
+The optional
+.I weight
+defaults to 1 and influences auto\-detection scoring.  The field name
+.B body
+is reserved for the body rule.  The old
+.B header =
+form is no longer accepted.
 .IP
 All rules inside a section must match for the profile to be selected
 (AND semantics).  For OR semantics create multiple profiles.

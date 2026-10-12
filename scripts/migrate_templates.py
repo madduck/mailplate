@@ -110,11 +110,11 @@ def migrate_template(path: Path, global_helpers: dict[str, str]) -> str | None:
                     # Remove trailing )? etc.
                     hdr_re = hdr_re.strip()
                     # Escape the original regex into something that works
-                    # in our format (header = HeaderName: regex).
+                    # in our format (HeaderName = regex).
                     if weight == 1:
-                        rules.append(f"header = {hdr_name}: {hdr_re}")
+                        rules.append(f"{hdr_name} = {hdr_re}")
                     else:
-                        rules.append(f"header:{weight} = {hdr_name}: {hdr_re}")
+                        rules.append(f"{hdr_name}:{weight} = {hdr_re}")
                 else:
                     if weight == 1:
                         rules.append(f"body = {regex}")

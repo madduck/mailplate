@@ -41,10 +41,10 @@ class TestParseRuleLine:
 
     def test_header_rule(self) -> None:
         """A header rule line is parsed correctly."""
-        result = _parse_rule_line("header = From:.*@example\\.com")
+        result = _parse_rule_line("From = .*@example\\.com")
         assert result is not None
         assert result.kind == "header"
-        assert result.value == "From:.*@example\\.com"
+        assert result.value == "From: .*@example\\.com"
         assert result.weight == 1
 
     def test_body_rule(self) -> None:
@@ -57,10 +57,10 @@ class TestParseRuleLine:
 
     def test_header_rule_with_weight(self) -> None:
         """A header rule with an explicit weight is parsed."""
-        result = _parse_rule_line("header:5 = From:.*@example\\.com")
+        result = _parse_rule_line("From:5 = .*@example\\.com")
         assert result is not None
         assert result.kind == "header"
-        assert result.value == "From:.*@example\\.com"
+        assert result.value == "From: .*@example\\.com"
         assert result.weight == 5
 
     def test_body_rule_with_weight(self) -> None:
@@ -75,12 +75,17 @@ class TestParseRuleLine:
         """A line without a rule pattern returns None."""
         assert _parse_rule_line("not a rule") is None
 
+    def test_legacy_header_syntax_rejected(self) -> None:
+        """The removed ``header = ...`` syntax raises ProfileError."""
+        with pytest.raises(ProfileError, match="no longer supported"):
+            _parse_rule_line("header = From:.*@example\\.com")
+
     def test_empty_value(self) -> None:
         """A rule with empty value after = is parsed."""
-        result = _parse_rule_line("header = ")
+        result = _parse_rule_line("Subject = ")
         assert result is not None
         assert result.kind == "header"
-        assert result.value == ""
+        assert result.value == "Subject:"
         assert result.weight == 1
 
 
@@ -125,7 +130,7 @@ name = Test
 extra_line_ignored
 
 [rules]
-header = From:.*@example\\.com
+From = .*@example\\.com
 bogus_line
 
 [headers]
@@ -145,7 +150,7 @@ another_bogus
 name = Work
 
 [rules]
-header = From:.*@company\\.com
+From = .*@company\\.com
 body = \\[internal\\]
 
 [headers]
@@ -224,7 +229,7 @@ name = Test
 
 [rules]
 # Rule comment
-header = From:.*@test\\.com
+From = .*@test\\.com
 """
         path = tmp_path / "test.mplt"
         path.write_text(content, encoding="utf-8")
