@@ -27,8 +27,9 @@ extracted from the incoming message.
 .SH OPTIONS
 .TP
 .BR \-p ", " \-\-profile " " \fINAME\fR
-Apply the profile identified by \fINAME\fR (the filename stem or the
-display name).  When this option is omitted,
+Apply the profile identified by \fINAME\fR (the filename stem, the path
+relative to the scanned directory for profiles in subdirectories, or
+the display name).  When this option is omitted,
 .B mailplate
 auto\-detects the best matching profile by evaluating each profile's
 rules against the message and selecting the one with the most matches.
@@ -44,8 +45,9 @@ profiles in subdirectories are found as well.
 Write the transformed message to \fIFILE\fR instead of standard output.
 .TP
 .BR \-l ", " \-\-list-profiles
-List all available profiles and exit.  Each line shows the filename stem
-(used with \fB\-p\fR) and the display name.
+List all available profiles and exit.  Each line shows the identifier
+(the filename stem, or the path relative to the scanned directory for
+profiles in subdirectories, used with \fB\-p\fR) and the display name.
 .TP
 .BR \-h ", " \-\-help
 Show a summary of options and exit.
