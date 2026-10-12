@@ -196,7 +196,7 @@ def _match_rule_for_scoring(rule: Rule, message: Message) -> bool:
     "profile_name",
     default=None,
     metavar="NAME",
-    help="Explicit profile name to apply (disables auto-detection).",
+    help="Explicit profile identifier (stem or relative path) to apply (disables auto-detection).",
 )
 @click.option(
     "-d",
@@ -316,11 +316,15 @@ def main(
 
 def _find_profile_by_name(profiles: list[Profile], name: str) -> Profile | None:
     """
-    Find a profile by its stem (filename without extension).
+    Find a profile by its identifier or display name.
+
+    A profile's identifier is its filename stem, or its path relative to
+    the scanned directory for profiles discovered in subdirectories
+    (both without the ``.mplt`` extension).
 
     Args:
         profiles: List of profiles to search.
-        name: The name (stem) to look for.
+        name: The identifier or display name to look for.
 
     Returns:
         The matching profile, or ``None``.
