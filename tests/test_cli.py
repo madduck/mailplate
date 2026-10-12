@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from mailplate import cli
 from mailplate.cli import _find_profile_by_name, _pick_best_profile, main
 from mailplate.merge import parse_email
 from mailplate.profile import Profile, Rule
@@ -175,6 +176,16 @@ def cli_runner() -> CliRunner:
     return CliRunner()
 
 
+def test_default_profile_dirs_exclude_host_config(
+    default_profile_dirs: list[Path],
+) -> None:
+    """Tests never search the host's real profile directories."""
+    assert cli.DEFAULT_PROFILE_DIRS == default_profile_dirs
+    real_user_dir = Path.home() / ".config" / "mailplate" / "profiles"
+    assert real_user_dir not in cli.DEFAULT_PROFILE_DIRS
+    assert Path("/etc/mailplate/profiles") not in cli.DEFAULT_PROFILE_DIRS
+
+
 class TestMainCommand:
     """Tests for the main CLI command."""
 
@@ -308,18 +319,14 @@ class TestMainCommand:
     def test_list_profiles_no_profiles(
         self,
         cli_runner: CliRunner,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
+        default_profile_dirs: list[Path],
     ) -> None:
         """--list-profiles lists profiles from the default directory."""
-        default_dir = tmp_path / "profiles"
-        default_dir.mkdir()
+        default_dir = default_profile_dirs[0]
+        default_dir.mkdir(parents=True)
         (default_dir / "default.mplt").write_text(
             "[profile]\nname = Default\n", encoding="utf-8"
         )
-        # Point the default search path at an isolated directory so the
-        # test does not depend on the host's real profile directories.
-        monkeypatch.setattr("mailplate.cli.DEFAULT_PROFILE_DIRS", [default_dir])
         result = cli_runner.invoke(
             main,
             args=["--list-profiles"],
