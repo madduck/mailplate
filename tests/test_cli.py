@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
 from mailplate import cli
-from mailplate.cli import _find_profile_by_name, _pick_best_profile, main
+from mailplate.cli import (
+    _find_profile_by_name,
+    _pick_best_profile,
+    _resolve_log_level,
+    main,
+)
 from mailplate.merge import parse_email
 from mailplate.profile import Profile, Rule
 
@@ -58,6 +64,34 @@ class TestFindProfileByName:
         """An empty profile list returns None."""
         result = _find_profile_by_name([], "anything")
         assert result is None
+
+
+class TestResolveLogLevel:
+    """Tests for _resolve_log_level."""
+
+    def test_default_is_none(self) -> None:
+        """No flags leaves logging unconfigured."""
+        assert _resolve_log_level(0, False, False) is None
+
+    def test_verbose_is_info(self) -> None:
+        """A single -v selects INFO."""
+        assert _resolve_log_level(1, False, False) == logging.INFO
+
+    def test_double_verbose_is_debug(self) -> None:
+        """-vv selects DEBUG."""
+        assert _resolve_log_level(2, False, False) == logging.DEBUG
+
+    def test_debug_flag_is_debug(self) -> None:
+        """--debug selects DEBUG."""
+        assert _resolve_log_level(0, True, False) == logging.DEBUG
+
+    def test_quiet_is_error(self) -> None:
+        """--quiet selects ERROR."""
+        assert _resolve_log_level(0, False, True) == logging.ERROR
+
+    def test_quiet_beats_debug(self) -> None:
+        """--quiet takes precedence over --debug."""
+        assert _resolve_log_level(2, True, True) == logging.ERROR
 
 
 EMAIL_HEADERS = b"Subject: Test\r\nFrom: Alice <alice@example.com>\r\nTo: Bob <bob@example.com>\r\n\r\nHello, this is the body.\r\n"
@@ -154,6 +188,49 @@ class TestPickBestProfile:
         profile, _captures = _pick_best_profile(profiles, self._MESSAGE)
         assert profile is not None
         assert profile.stem == "match"
+
+    def test_info_logs_selected_profile(self, caplog: pytest.LogCaptureFixture) -> None:
+        """INFO reports the evaluation count and the selected profile."""
+        profiles = [
+            Profile(
+                name="Match",
+                path=Path("match.mplt"),
+                rules=[Rule(kind="header", value="X-Custom: yes")],
+            )
+        ]
+        with caplog.at_level(logging.INFO, logger="mailplate.cli"):
+            _pick_best_profile(profiles, self._MESSAGE)
+        assert "evaluating 1 profiles for auto-detection" in caplog.text
+        assert "selected profile 'match' (Match) with score 1" in caplog.text
+
+    def test_info_logs_catch_all_fallback(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """INFO reports the fallback to a catch-all profile."""
+        profiles = [
+            Profile(
+                name="Nomatch",
+                path=Path("nomatch.mplt"),
+                rules=[Rule(kind="header", value="X-Custom: no-way")],
+            ),
+            Profile(name="Catch-all", path=Path("catchall.mplt")),
+        ]
+        with caplog.at_level(logging.INFO, logger="mailplate.cli"):
+            _pick_best_profile(profiles, self._MESSAGE)
+        assert "falling back to catch-all 'catchall' (Catch-all)" in caplog.text
+
+    def test_info_logs_no_match(self, caplog: pytest.LogCaptureFixture) -> None:
+        """INFO reports that no profile matched."""
+        profiles = [
+            Profile(
+                name="Nomatch",
+                path=Path("nomatch.mplt"),
+                rules=[Rule(kind="header", value="X-Custom: no-way")],
+            )
+        ]
+        with caplog.at_level(logging.INFO, logger="mailplate.cli"):
+            _pick_best_profile(profiles, self._MESSAGE)
+        assert "no matching profile found" in caplog.text
 
     def test_captures_only_from_winner(self) -> None:
         """Named captures are returned for the winning profile."""
