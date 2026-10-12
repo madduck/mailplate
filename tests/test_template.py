@@ -88,22 +88,45 @@ class TestApplyFilter:
 
     def test_default_with_value(self) -> None:
         """default filter returns the value when non-empty."""
-        result = _apply_filter("Alice", 'default("there")')
+        result = _apply_filter("Alice", 'default("there")', {})
         assert result == "Alice"
 
     def test_default_without_value(self) -> None:
-        """default filter returns the fallback when value is empty."""
-        result = _apply_filter("", 'default("there")')
+        """default filter returns the literal fallback when value is empty."""
+        result = _apply_filter("", 'default("there")', {})
         assert result == "there"
 
     def test_default_single_quotes(self) -> None:
         """default filter supports single quotes."""
-        result = _apply_filter("", "default('there')")
+        result = _apply_filter("", "default('there')", {})
         assert result == "there"
+
+    def test_default_quoted_is_literal(self) -> None:
+        """A quoted fallback is never resolved as a variable."""
+        context = {"_captures": {"domain": "example.org"}}
+        result = _apply_filter("", 'default("rule:domain")', context)
+        assert result == "rule:domain"
+
+    def test_default_variable_reference(self) -> None:
+        """An unquoted fallback is resolved as a variable."""
+        context = {"_captures": {"domain": "example.org"}}
+        result = _apply_filter("", "default(rule:domain)", context)
+        assert result == "example.org"
+
+    def test_default_variable_reference_with_value(self) -> None:
+        """The value wins over a variable fallback when non-empty."""
+        context = {"_captures": {"domain": "example.org"}}
+        result = _apply_filter("present", "default(rule:domain)", context)
+        assert result == "present"
+
+    def test_default_variable_reference_missing(self) -> None:
+        """A missing variable fallback resolves to the empty string."""
+        result = _apply_filter("", "default(rule:missing)", {"_captures": {}})
+        assert result == ""
 
     def test_unknown_filter(self) -> None:
         """Unknown filters return the value unchanged."""
-        result = _apply_filter("hello", "upper()")
+        result = _apply_filter("hello", "upper()", {})
         assert result == "hello"
 
 
@@ -238,6 +261,16 @@ class TestRenderTemplate:
         msg = self._make_message({})
         result = render_template('Hi {{ to_name | default("there") }}!', msg)
         assert result == "Hi there!"
+
+    def test_default_filter_with_variable_reference(self) -> None:
+        """The default filter resolves an unquoted argument as a variable."""
+        msg = self._make_message({})
+        result = render_template(
+            "{{ rule:pmndomain | default(rule:domain) }}",
+            msg,
+            captures={"domain": "example.org"},
+        )
+        assert result == "example.org"
 
     def test_multiple_placeholders(self) -> None:
         """Multiple placeholders in one template are replaced."""
