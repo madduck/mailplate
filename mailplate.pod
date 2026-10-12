@@ -369,6 +369,6 @@ Project repository: L<https://github.com/madduck/mailplate>
 
 =head1 AUTHOR
 
-Copyright © 2026 Martijn Vermaat (L<madduck|mailto:madduck@madduck.net>).
+Copyright © 2000–2026 Martin Krafft (L<madduck|mailto:madduck@madduck.net>).
 
 License MIT.

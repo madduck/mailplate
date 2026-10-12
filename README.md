@@ -320,7 +320,8 @@ pod2man --section=1 --center="User Commands" --release=mailplate \
 
 ## Migration
 
-If you have existing profiles from an older version of mailplate, a
+If you have existing profiles from an
+[older version of mailplate](https://git.madduck.net/code/mailplate.git), a
 migration script is provided:
 
 ```sh
@@ -333,6 +334,8 @@ to the project’s ``profiles/`` directory. After migration, copy
 them to ``~/.config/mailplate/profiles/`` or point ``--profile-dir`` at
 the output directory.
 
-## License
+## License & Copyright
 
 Distributed under the terms of the MIT license.
+
+© 2000–2026 martin f. krafft <mailplate@pobox.madduck.net>
