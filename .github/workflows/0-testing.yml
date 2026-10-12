@@ -34,6 +34,9 @@ jobs:
       - name: Formatting (ruff format)
         run: uv run --no-sync ruff format --diff .
 
+      - name: Security scan (bandit)
+        run: uv run --no-sync bandit -c pyproject.toml -r .
+
       - name: Unit and integration tests (pytest)
         run: uv run --no-sync pytest
 
