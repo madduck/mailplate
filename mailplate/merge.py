@@ -16,11 +16,16 @@ from email.message import Message
 from email.parser import BytesParser
 from typing import TYPE_CHECKING
 
-from .rules import _get_body
+from .rules import _decode_header_value, _get_body
 from .template import render_template
 
 if TYPE_CHECKING:
     from .profile import Profile
+
+#: Policy used for serialising drafts.  ``utf8=True`` makes the
+#: generator emit non-ASCII header bodies verbatim as UTF-8 instead of
+#: RFC 2047-encoding them.
+_POLICY = policy.default.clone(utf8=True)
 
 #: Headers that belong to the MIME machinery and are stripped
 #: from the output.
@@ -252,7 +257,9 @@ def _apply_headers(
     placeholders like ``{{ subject }}``, ``{{ header:X-Custom }}``, or
     ``{{ helper:get_quote }}`` are expanded.  Rendering is evaluated
     against *original* so that placeholders refer to the untouched
-    input rather than values already overridden.
+    input rather than values already overridden.  Existing headers are
+    copied verbatim; :func:`serialize_email` is responsible for
+    emitting non-ASCII content as plain UTF-8.
 
     Args:
         message: The message to modify in-place.
@@ -276,7 +283,7 @@ def _apply_headers(
     # and dropping duplicates of an overridden header.
     ordered: list[tuple[str, str]] = []
     replaced: set[str] = set()
-    for name, value in original.items():
+    for name, value in original.raw_items():
         lower = name.lower()
         if lower in removed:
             continue
@@ -336,8 +343,9 @@ def merge_profile(
     captures = captures or {}
     _apply_headers(result, message, profile, captures)
 
-    # 2. Build the new body and set it as UTF-8 bytes so that
-    #    compat32 serialisation does not force ASCII encoding.
+    # 2. Build the new body and set it as UTF-8 bytes so that the body
+    #    round-trips unchanged regardless of the message's declared
+    #    charset.
     new_body = _build_new_body(result, profile, captures)
     result.set_payload(new_body.encode("utf-8"))
 
@@ -362,9 +370,32 @@ def parse_email(data: bytes) -> Message:
     return parser.parsebytes(data)
 
 
+def _decode_headers(message: Message) -> None:
+    """
+    Replace every header value in *message* with its decoded Unicode form.
+
+    RFC 2047 encoded words and raw 8-bit values are both decoded so that
+    the subsequent serialisation can emit plain UTF-8.
+
+    Args:
+        message: The message whose headers to decode in-place.
+
+    """
+    decoded = [
+        (name, _decode_header_value(value)) for name, value in message.raw_items()
+    ]
+    for key in {name.lower() for name in message}:
+        del message[key]
+    for name, value in decoded:
+        message[name] = value
+
+
 def serialize_email(message: Message) -> bytes:
     """
     Serialise an email message back to RFC5322 bytes.
+
+    Non-ASCII header bodies are written verbatim as UTF-8 instead of
+    being RFC 2047-encoded.  The message is not modified.
 
     Args:
         message: The email message to serialise.
@@ -373,4 +404,6 @@ def serialize_email(message: Message) -> bytes:
         The RFC5322 bytes.
 
     """
-    return message.as_bytes(policy=policy.compat32)
+    result: Message = copy.deepcopy(message)
+    _decode_headers(result)
+    return result.as_bytes(policy=_POLICY)
