@@ -29,6 +29,10 @@ uv run mailplate --help
 mailplate --profile work < draft.eml > rewritten.eml
 ```
 
+Profiles discovered in subdirectories are addressed by their path
+relative to the scanned directory, for example `--profile work/foo`
+for `work/foo.mplt`.
+
 ### Auto‑detection
 
 Omit `--profile`. mailplate scans available profiles, applies each
