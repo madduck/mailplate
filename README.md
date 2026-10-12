@@ -1,12 +1,10 @@
 # mailplate
 
-**mailplate** is a Unix‑style filter for [RFC 5322][] email drafts.
-It reads a draft from standard input, rewrites it according to a **Profile**,
-and writes the result to standard output (or to a file with `--output`).
+**mailplate** is a Unix‑style filter for email drafts. It reads a draft from
+standard input, rewrites it according to a **Profile**, and writes the result to
+standard output (or to a file with `--output`).
 
 It is designed to integrate with text‑based mail user agents such as Mutt.
-
-[RFC 5322]: https://www.rfc-editor.org/rfc/rfc5322
 
 ## Installation
 
@@ -108,7 +106,8 @@ anything other than ``text/plain`` (e.g. HTML parts, attachments) are
 rejected with an error. The output is a bare RFC 5322 message without
 MIME headers (no ``MIME-Version``, ``Content-Type``, or
 ``Content-Transfer-Encoding``). Non‑ASCII characters in header bodies
-are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
+are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them,
+as the output is expected to be further processed by a MUA, such as Mutt.
 
 ### Sections
 

@@ -3,7 +3,7 @@ Command-line interface for mailplate.
 
 Usage:
 
-    Read an RFC5322 draft from stdin, apply a profile, and write the
+    Read an email draft from stdin, apply a profile, and write the
     result to stdout::
 
         mailplate --profile work < draft.eml > rewritten.eml
@@ -252,7 +252,7 @@ def main(
     verbose: bool,
 ) -> None:
     """
-    Apply a mailplate profile to an RFC5322 email draft.
+    Apply a mailplate profile to an email draft.
 
     Reads the draft from stdin, transforms it according to the selected
     profile, and writes the result to stdout (or to the file specified
