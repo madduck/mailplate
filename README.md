@@ -157,7 +157,9 @@ are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
         From = .*@(?P&lt;domain&gt;[a-z0-9.]+)
 
     makes ``{{ rule:domain }}`` available in greeting, closing,
-    signature, and header values.
+    signature, and header values. Rules are evaluated for named
+    captures both during auto-detection and when a profile is selected
+    explicitly with ``--profile``.
 
 `[headers]`
 :   Header definitions. Each line is `Header‑Name = value`.
