@@ -37,7 +37,8 @@ A profile with no rules is a catch\-all with score 0.
 .BR \-d ", " \-\-profile-dir " " \fIDIR\fR
 Add \fIDIR\fR to the list of directories scanned for profile files.
 May be specified more than once.  Extra directories take precedence over
-the default search paths.
+the default search paths.  Directories are scanned recursively, so
+profiles in subdirectories are found as well.
 .TP
 .BR \-o ", " \-\-output " " \fIFILE\fR
 Write the transformed message to \fIFILE\fR instead of standard output.
@@ -148,11 +149,11 @@ filter supplies a fallback when a variable is empty:
 .\"
 .SH FILES
 .TP
-.I ~/.config/mailplate/profiles/*.mplt
-User\-specific profile files.
+.I ~/.config/mailplate/profiles/**/*.mplt
+User\-specific profile files (found recursively).
 .TP
-.I /etc/mailplate/profiles/*.mplt
-System\-wide profile files.
+.I /etc/mailplate/profiles/**/*.mplt
+System\-wide profile files (found recursively).
 .\"
 .SH EXAMPLES
 .TP
