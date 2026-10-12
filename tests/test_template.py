@@ -272,6 +272,34 @@ class TestRenderTemplate:
         )
         assert result == "example.org"
 
+    def test_filters_apply_left_to_right(self) -> None:
+        """Chained filters are applied from left to right."""
+        msg = self._make_message({})
+        result = render_template('{{ missing | default("a") | default("b") }}', msg)
+        assert result == "a"
+
+    def test_filter_argument_pipe_is_not_a_separator(self) -> None:
+        """A pipe inside a filter argument is part of the argument."""
+        msg = self._make_message({})
+        result = render_template('{{ missing | default("a|b") }}', msg)
+        assert result == "a|b"
+
+    def test_filter_chain_with_variable_fallback(self) -> None:
+        """A chain can fall back through a variable to a literal."""
+        msg = self._make_message({})
+        result = render_template(
+            '{{ rule:pmndomain | default(rule:domain) | default("example.net") }}',
+            msg,
+            captures={"domain": "example.org"},
+        )
+        assert result == "example.org"
+
+    def test_invalid_filter_chain_is_left_verbatim(self) -> None:
+        """A malformed filter chain is not rendered."""
+        msg = self._make_message({})
+        result = render_template("{{ subject | !!! }}", msg)
+        assert result == "{{ subject | !!! }}"
+
     def test_multiple_placeholders(self) -> None:
         """Multiple placeholders in one template are replaced."""
         msg = self._make_message(
