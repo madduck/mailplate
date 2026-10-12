@@ -71,9 +71,17 @@ def _pick_best_profile(
     """
     Pick the best matching profile for a message.
 
-    The "best" profile is the one with the highest total score (sum of
-    matching rule weights).  If multiple profiles have the same score,
-    the first one encountered (by discovery order) wins.
+    Only profiles carrying rules can "match": the "best" profile is the
+    one with the highest total score (sum of matching rule weights),
+    and it must score at least 1 to be selected.  If multiple profiles
+    have the same score, the first one encountered (by discovery order)
+    wins.
+
+    Profiles without rules are catch-alls.  They are used only as a
+    fallback when no rule-based profile produces a positive score; if
+    several catch-alls exist, the first one wins.  When neither a
+    rule-based match nor a catch-all is available, ``None`` is returned
+    so the caller can pass the input through unchanged.
 
     Alongside the chosen profile, any named capture groups from the
     winning profile's matching rules are returned as a flat dict.
@@ -89,52 +97,61 @@ def _pick_best_profile(
 
     """
     best: Profile | None = None
-    best_score = -1
+    best_score = 0
     best_captures: dict[str, str] = {}
+    catch_all: Profile | None = None
 
     log.debug("evaluating %d profiles for auto-detection", len(profiles))
     for profile in profiles:
-        if profile.rules:
-            details: list[str] = []
-            score = 0
-            captures: dict[str, str] = {}
-            for rule in profile.rules:
-                matched = _match_rule_for_scoring(rule, message)
-                if matched:
-                    score += rule.weight
-                    details.append(f"  \u2714 {rule.kind} = {rule.value}")
-                    captures.update(_match_rule_captures(rule, message))
-                else:
-                    details.append(f"  \u2718 {rule.kind} = {rule.value}")
-            log.debug(
-                "profile %r (%s): score %d/%d\n%s",
-                profile.stem,
-                profile.name,
-                score,
-                len(profile.rules),
-                "\n".join(details),
-            )
-            if score > best_score:
-                log.debug(
-                    "  \u2192 new best (previous best was %s)",
-                    best_score if best_score >= 0 else "none",
-                )
-                best = profile
-                best_score = score
-                best_captures = captures
-        else:
+        if not profile.rules:
             log.debug(
                 "profile %r (%s): no rules (catch-all, score 0)",
                 profile.stem,
                 profile.name,
             )
-            if best_score < 0:
-                log.debug(  # pragma: no cover
-                    "  \u2192 selected as catch-all (no rule-based profile matched)"
-                )  # pragma: no cover
-                best = profile  # pragma: no cover
-                best_score = 0  # pragma: no cover
+            # Remember the first catch-all; it is only applied if no
+            # rule-based profile scores above zero.
+            if catch_all is None:
+                catch_all = profile
+            continue
 
+        details: list[str] = []
+        score = 0
+        captures: dict[str, str] = {}
+        for rule in profile.rules:
+            matched = _match_rule_for_scoring(rule, message)
+            if matched:
+                score += rule.weight
+                details.append(f"  \u2714 {rule.kind} = {rule.value}")
+                captures.update(_match_rule_captures(rule, message))
+            else:
+                details.append(f"  \u2718 {rule.kind} = {rule.value}")
+        log.debug(
+            "profile %r (%s): score %d/%d\n%s",
+            profile.stem,
+            profile.name,
+            score,
+            len(profile.rules),
+            "\n".join(details),
+        )
+        # A zero score is not a match; require at least one matched point.
+        if score > best_score:
+            log.debug(
+                "  \u2192 new best (previous best was %s)",
+                best_score if best is not None else "none",
+            )
+            best = profile
+            best_score = score
+            best_captures = captures
+
+    # Fall back to the first catch-all only when nothing scored positively.
+    if best is None and catch_all is not None:
+        log.debug(
+            "no rule-based profile matched; falling back to catch-all %r (%s)",
+            catch_all.stem,
+            catch_all.name,
+        )
+        best = catch_all
     if best is not None:
         log.debug(
             "selected profile %r (%s) with score %d",
@@ -143,7 +160,7 @@ def _pick_best_profile(
             best_score,
         )
     else:
-        log.debug("no matching profile found")  # pragma: no cover
+        log.debug("no matching profile found")
     return best, best_captures
 
 

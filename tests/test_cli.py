@@ -7,8 +7,9 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from mailplate.cli import _find_profile_by_name, main
-from mailplate.profile import Profile
+from mailplate.cli import _find_profile_by_name, _pick_best_profile, main
+from mailplate.merge import parse_email
+from mailplate.profile import Profile, Rule
 
 
 class TestFindProfileByName:
@@ -64,6 +65,95 @@ Best,
 --
 {{ from_email }}
 """
+
+
+class TestPickBestProfile:
+    """Tests for _pick_best_profile."""
+
+    _MESSAGE = parse_email(b"Subject: Test\r\nX-Custom: yes\r\n\r\nUrgent body\r\n")
+
+    def test_zero_score_is_not_a_match(self) -> None:
+        """A profile whose rules all fail scores zero and is not selected."""
+        profiles = [
+            Profile(
+                name="First",
+                path=Path("first.mplt"),
+                rules=[Rule(kind="header", value="X-Custom: no-way")],
+            )
+        ]
+        profile, captures = _pick_best_profile(profiles, self._MESSAGE)
+        assert profile is None
+        assert captures == {}
+
+    def test_positive_score_wins(self) -> None:
+        """A profile with a matching rule is selected."""
+        profiles = [
+            Profile(
+                name="Nomatch",
+                path=Path("nomatch.mplt"),
+                rules=[Rule(kind="header", value="X-Custom: no-way")],
+            ),
+            Profile(
+                name="Match",
+                path=Path("match.mplt"),
+                rules=[Rule(kind="header", value="X-Custom: yes")],
+            ),
+        ]
+        profile, _captures = _pick_best_profile(profiles, self._MESSAGE)
+        assert profile is not None
+        assert profile.stem == "match"
+
+    def test_catch_all_used_when_no_match(self) -> None:
+        """A rule-less profile is the fallback when nothing scores."""
+        profiles = [
+            Profile(
+                name="Nomatch",
+                path=Path("nomatch.mplt"),
+                rules=[Rule(kind="header", value="X-Custom: no-way")],
+            ),
+            Profile(name="Catch-all", path=Path("catchall.mplt")),
+        ]
+        profile, _captures = _pick_best_profile(profiles, self._MESSAGE)
+        assert profile is not None
+        assert profile.stem == "catchall"
+
+    def test_first_catch_all_wins(self) -> None:
+        """The earliest catch-all is used when several exist."""
+        profiles = [
+            Profile(name="First", path=Path("first.mplt")),
+            Profile(name="Second", path=Path("second.mplt")),
+        ]
+        profile, _captures = _pick_best_profile(profiles, self._MESSAGE)
+        assert profile is not None
+        assert profile.stem == "first"
+
+    def test_match_beats_catch_all(self) -> None:
+        """A positive-scoring profile beats a catch-all."""
+        profiles = [
+            Profile(name="Catch-all", path=Path("catchall.mplt")),
+            Profile(
+                name="Match",
+                path=Path("match.mplt"),
+                rules=[Rule(kind="header", value="X-Custom: yes")],
+            ),
+        ]
+        profile, _captures = _pick_best_profile(profiles, self._MESSAGE)
+        assert profile is not None
+        assert profile.stem == "match"
+
+    def test_captures_only_from_winner(self) -> None:
+        """Named captures are returned for the winning profile."""
+        profiles = [
+            Profile(
+                name="Match",
+                path=Path("match.mplt"),
+                rules=[
+                    Rule(kind="header", value="X-Custom: (?P<flag>yes)"),
+                ],
+            )
+        ]
+        _profile, captures = _pick_best_profile(profiles, self._MESSAGE)
+        assert captures == {"flag": "yes"}
 
 
 @pytest.fixture
