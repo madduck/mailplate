@@ -33,17 +33,19 @@ available:
 ``{{ rule:<name> }}``
     Named capture group from a matching rule's regexp.
 
-Filters can be chained with the pipe (``|``) syntax:
+Filters can be chained with the pipe (``|``) syntax. They are applied
+from left to right, and a pipe inside a filter argument is not treated
+as a separator:
 
 ``{{ to_name | default("there") }}``
     Use ``to_name`` if available, otherwise fall back to ``"there"``.
 
 The ``default`` filter accepts either a quoted literal or a variable
-reference as its argument:
+reference as its argument, and several fallbacks can be chained:
 
-``{{ rule:pmndomain | default(rule:domain) }}``
-    Use ``rule:pmndomain`` if available, otherwise fall back to the
-    value of ``rule:domain``.
+``{{ rule:pmndomain | default(rule:domain) | default("example.net") }}``
+    Use the first non-empty of ``rule:pmndomain``, ``rule:domain``, or
+    the literal ``"example.net"``.
 """
 
 from __future__ import annotations
@@ -150,9 +152,13 @@ def _apply_filter(value: str, filter_expr: str, context: dict[str, Any]) -> str:
     return value
 
 
+#: Matches a ``{{ variable }}`` placeholder and its filter chain.
 _PLACEHOLDER_RE = re.compile(
-    r"\{\{\s*([\w<>.:-]+?)(?:\s*\|\s*(\w+(?:\([^)]*\))?))?\s*\}\}"
+    r"\{\{\s*([\w<>.:-]+?)((?:\s*\|\s*\w+(?:\([^)]*\))?)*)\s*\}\}"
 )
+
+#: Extracts the individual filters from a placeholder's filter chain.
+_FILTER_RE = re.compile(r"\|\s*(\w+(?:\([^)]*\))?)")
 
 
 def _run_helper(command: str) -> str:
@@ -274,10 +280,9 @@ def render_template(
     }
 
     def _replacer(match: re.Match[str]) -> str:
-        var_name = match.group(1)
-        raw_value = _get_variable(var_name, context)
-        if filter_expr := match.group(2):
-            return _apply_filter(raw_value, filter_expr, context)
-        return raw_value
+        value = _get_variable(match.group(1), context)
+        for filter_expr in _FILTER_RE.findall(match.group(2)):
+            value = _apply_filter(value, filter_expr, context)
+        return value
 
     return _PLACEHOLDER_RE.sub(_replacer, template)
