@@ -77,7 +77,9 @@ extension. The format is INI\-like with sections delimited by
 .BR [square\ brackets] .
 Comments start with
 .B #
-and blank lines are ignored.
+and blank lines are ignored, except inside
+.BR [signature] ,
+whose content is preserved verbatim.
 .PP
 .IP \fB[profile]\fR 18
 Profile metadata. The only recognised field is
@@ -163,8 +165,10 @@ Template variables are expanded.
 Lines appended at the end of the message, separated from the closing
 by a
 .B "-- "
-delimiter line. Template variables are expanded. If the original
-draft already contains a signature (text following a
+delimiter line. Template variables are expanded. Signature lines are
+copied verbatim: leading whitespace and blank lines are preserved
+exactly as written. If the original draft already contains a
+signature (text following a
 .B "-- "
 line), it is replaced by this section; if no
 .B [signature]

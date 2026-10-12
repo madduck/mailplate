@@ -184,6 +184,10 @@ are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
     expanded. The signature is separated from the closing by a
     ``^-- $`` delimiter line.
 
+    The lines of the ``[signature]`` section are copied verbatim:
+    leading whitespace and blank lines are preserved exactly as
+    written in the profile.
+
     If the original draft already contains a signature (i.e. text
     following a ``^-- $`` line), that signature is replaced by the
     profile’s ``[signature]`` section. If the profile does not
@@ -207,7 +211,8 @@ are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
         get_quote    = fortune -n2
         get_long_date = date '+%d %B %Y'
 
-Comments start with `#` and blank lines are ignored.
+Comments start with `#` and blank lines are ignored, except inside
+`[signature]`, whose content is preserved verbatim.
 
 ### Including shared settings
 
