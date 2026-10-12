@@ -327,6 +327,26 @@ class TestDiscoverProfiles:
         assert len(profiles) == 2
         assert {p.stem for p in profiles} == {"work", "personal"}
 
+    def test_finds_profiles_in_subdirectories(self, tmp_path: Path) -> None:
+        """Profiles in nested subdirectories are discovered too."""
+        nested = tmp_path / "team" / "project"
+        nested.mkdir(parents=True)
+        (tmp_path / "top.mplt").write_text("[profile]\nname = Top\n", encoding="utf-8")
+        (nested / "deep.mplt").write_text("[profile]\nname = Deep\n", encoding="utf-8")
+        (nested / "ignored.txt").write_text("not a profile", encoding="utf-8")
+        profiles = discover_profiles([tmp_path])
+        assert {p.stem for p in profiles} == {"top", "deep"}
+
+    def test_nested_scan_roots_deduplicated(self, tmp_path: Path) -> None:
+        """A profile is not duplicated when both a parent and a nested
+        directory are scanned."""
+        nested = tmp_path / "sub"
+        nested.mkdir()
+        (nested / "p.mplt").write_text("[profile]\nname = P\n", encoding="utf-8")
+        profiles = discover_profiles([tmp_path, nested])
+        assert len(profiles) == 1
+        assert profiles[0].stem == "p"
+
     def test_skips_malformed(self, tmp_path: Path) -> None:
         """Malformed profile files are silently skipped."""
         (tmp_path / "good.mplt").write_text(
