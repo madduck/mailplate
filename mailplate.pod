@@ -1,0 +1,351 @@
+=encoding UTF-8
+
+=head1 NAME
+
+mailplate - apply a mailplate profile to an RFC5322 email draft
+
+=head1 SYNOPSIS
+
+B<mailplate> [B<-p> I<NAME>] [B<-d> I<DIR>]... [B<-o> I<FILE>] [B<-l>]
+[B<-v>] [B<-h>] [B<--version>]
+
+=head1 DESCRIPTION
+
+B<mailplate> is a Unix-style filter for RFC5322 email drafts. It reads
+a draft from standard input, rewrites it according to a profile, and
+writes the result to standard output.
+
+The profile controls which headers are added or overridden, how the
+body is restructured (greeting, closing, signature blocks), and all
+sections can contain template placeholders that are filled with data
+extracted from the incoming message.
+
+Only plain-text drafts are supported: a message containing anything
+other than C<text/plain> (for example an HTML part or an attachment)
+is rejected with an error. The output is a bare RFC 5322 message
+without MIME headers. Non-ASCII characters in header bodies are
+written verbatim as UTF-8; B<mailplate> does not RFC 2047-encode them.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-p>, B<--profile> I<NAME>
+
+Apply the profile identified by I<NAME> (the filename stem, the path
+relative to the scanned directory for profiles in subdirectories, or
+the display name). When this option is omitted, B<mailplate>
+auto-detects the best matching profile by evaluating each profile's
+rules against the message and selecting the one with the most matches.
+A profile with no rules is a catch-all with score 0.
+
+=item B<-v>, B<--verbose>
+
+Print diagnostic information to standard error, including the profile
+search paths, discovery counts, per-rule match details, and the
+selection rationale.
+
+=item B<-d>, B<--profile-dir> I<DIR>
+
+Add I<DIR> to the list of directories scanned for profile files. May
+be specified more than once. Extra directories take precedence over
+the default search paths. Directories are scanned recursively, so
+profiles in subdirectories are found as well.
+
+=item B<-o>, B<--output> I<FILE>
+
+Write the transformed message to I<FILE> instead of standard output.
+
+=item B<-l>, B<--list-profiles>
+
+List all available profiles and exit. Each line shows the identifier
+(the filename stem, or the path relative to the scanned directory for
+profiles in subdirectories, used with B<-p>) and the display name.
+
+=item B<-h>, B<--help>
+
+Show a summary of options and exit.
+
+=item B<--version>
+
+Print the program version and exit.
+
+=back
+
+=head1 PROFILE FORMAT
+
+Profiles are flat text files with a C<.mplt> extension. The format is
+INI-like with sections delimited by C<[square brackets]>. Comments
+start with C<#> and blank lines are ignored, except inside
+C<[signature]>, whose content is preserved verbatim.
+
+=over 4
+
+=item B<[profile]>
+
+Profile metadata. The only recognised field is B<name>. If absent, the
+filename stem is used as the display name.
+
+=item B<[rules]>
+
+Auto-detection rules. Each line has the form
+
+=over 4
+
+=item *
+
+I<HeaderName> = I<regex>
+
+=item *
+
+I<HeaderName>:I<weight> = I<regex>
+
+=item *
+
+B<body> = I<regex>
+
+=item *
+
+B<body>:I<weight> = I<regex>
+
+=item *
+
+B<rcpt> = I<regex>
+
+=item *
+
+B<rcpt>:I<weight> = I<regex>
+
+=back
+
+The optional I<weight> defaults to 1 and influences auto-detection
+scoring. It may be zero, in which case the rule still contributes its
+named captures but adds nothing to the score, or negative, in which
+case it subtracts points and a sufficiently negative rule can stop its
+profile from being selected. Field names are matched
+case-insensitively. The field name B<body> is reserved for the body
+rule; the field name B<rcpt> matches against all of the B<To>, B<Cc>,
+and B<Bcc> headers at once (the rule applies if the regexp matches any
+of them). The old C<< header = >> form is no longer accepted.
+
+Each rule is matched independently: every matching rule adds its weight
+to the profile's score, while a non-matching rule adds nothing. The
+profile with the highest total score wins, provided that score is at
+least 1.
+
+Named capture groups in a rule's regexp become template variables in
+the B<rule:> namespace. For example, the rule
+
+  From = .*@(?P<domain>[a-z0-9.]+)
+
+makes C<{{ rule:domain }}> available in the B<[headers]>,
+B<[greeting]>, B<[closing]>, and B<[signature]> sections. Rules are
+evaluated for named captures both during auto-detection and when a
+profile is selected explicitly with B<--profile>.
+
+=item B<[headers]>
+
+Header definitions in the form I<Header-Name> = I<value>. Existing
+headers with the same name (case-insensitive) are replaced. Template
+placeholders are expanded in header values, so a value may reference
+other headers via C<{{ header:Name }}> as well as the shorthand
+variables listed below.
+
+=item B<[greeting]>
+
+Lines inserted before the original body. A blank line after the
+greeting is provided automatically. Template variables are expanded.
+
+=item B<[closing]>
+
+Lines inserted after the original body but before the signature.
+Template variables are expanded.
+
+=item B<[signature]>
+
+Lines appended at the end of the message, separated from the closing
+by a C<-- > delimiter line. Template variables are expanded. Signature
+lines are copied verbatim: leading whitespace and blank lines are
+preserved exactly as written. If the original draft already contains a
+signature (text following a C<-- > line), it is replaced by this
+section; if no B<[signature]> section is defined, the original
+signature is preserved unchanged.
+
+=item B<[remove_headers]>
+
+One header name per line. Matching headers (case-insensitive) are
+deleted from the output, after B<[headers]> have been applied.
+
+=item B<[helpers]>
+
+External command definitions in the form I<name> = I<shell command>.
+The command is split with C<shlex.split> and run without a shell, with
+a five-second timeout. Its standard output can be inserted with
+C<{{ helper:name }}> in any template section. For example:
+
+    [helpers]
+    get_quote     = fortune -n2
+    get_long_date = date '+%d %B %Y'
+
+=back
+
+=head2 INCLUDE files
+
+A file named exactly B<INCLUDE> (no extension) in a profile directory
+is applied automatically to every profile in that directory and its
+subdirectories. When F<foo/bar/prof.mplt> is loaded, the root-level
+B<INCLUDE>, F<foo/INCLUDE>, and F<foo/bar/INCLUDE> are applied in that
+order (least specific first), followed by the profile itself. An
+B<INCLUDE> file uses the same format as a profile but must not contain
+a B<[profile]> section.
+
+The B<[rules]>, B<[headers]>, B<[helpers]>, and B<[remove_headers]>
+sections accumulate across all files, with the more specific file
+winning on a name collision; verbatim duplicate rules are kept once.
+The B<[greeting]>, B<[closing]>, and B<[signature]> sections are
+single-valued: the most specific file that defines the section wins,
+and an explicitly empty section clears an inherited one.
+
+=head2 Idempotency
+
+If the body already starts with the rendered greeting and/or ends with
+the rendered closing+signature block, those are stripped before the
+fresh decorations are applied. Running B<mailplate> multiple times with
+the same profile therefore does not keep piling on extra greeting or
+closing lines.
+
+=head1 TEMPLATE VARIABLES
+
+The following placeholders can be used in the B<[headers]>,
+B<[greeting]>, B<[closing]>, and B<[signature]> sections.
+
+=over 4
+
+=item C<{{ body }}>
+
+Original plain-text body of the message.
+
+=item C<{{ from }}>
+
+Full B<From> header value.
+
+=item C<{{ from_name }}>
+
+Display-name portion of the B<From> address.
+
+=item C<{{ from_email }}>
+
+Email-address portion of the B<From> address.
+
+=item C<{{ to }}>
+
+Full B<To> header value.
+
+=item C<{{ to_name }}>
+
+Display-name of the first B<To> address.
+
+=item C<{{ to_email }}>
+
+Email of the first B<To> address.
+
+=item C<{{ subject }}>
+
+B<Subject> header value.
+
+=item C<{{ date }}>
+
+B<Date> header value.
+
+=item C<{{ header:name }}>
+
+Value of an arbitrary header.
+
+=item C<{{ env:var }}>
+
+Value of an environment variable.
+
+=item C<{{ helper:name }}>
+
+Output of a helper command from B<[helpers]>.
+
+=item C<{{ rule:capture }}>
+
+Named regexp group from a matching rule.
+
+=back
+
+The B<default> filter supplies a fallback when a variable is empty:
+
+  {{ to_name | default("there") }}
+
+=head1 FILES
+
+=over 4
+
+=item F<~/.config/mailplate/profiles/**/*.mplt>
+
+User-specific profile files (found recursively).
+
+=item F</etc/mailplate/profiles/**/*.mplt>
+
+System-wide profile files (found recursively).
+
+=back
+
+=head1 EXAMPLES
+
+=over 4
+
+=item Apply the I<work> profile explicitly
+
+  mailplate --profile work < draft.eml > rewritten.eml
+
+=item Auto-detect a profile from the input
+
+  mailplate < draft.eml > rewritten.eml
+
+=item Edit a draft in-place (via temporary output)
+
+  mailplate --profile personal -o draft.eml < draft.eml
+
+=item List available profiles
+
+  mailplate --list-profiles
+
+=item Apply a profile from a subdirectory
+
+  mailplate --profile work/foo < draft.eml > rewritten.eml
+
+=item Print diagnostics to standard error
+
+  mailplate --verbose < draft.eml > rewritten.eml
+
+=back
+
+=head1 EXIT STATUS
+
+=over 4
+
+=item Z<>0
+
+Successful completion.
+
+=item Z<>1
+
+An error occurred (profile not found, no input data, stdin empty,
+etc.).
+
+=back
+
+=head1 SEE ALSO
+
+B<mutt>(1), B<neomutt>(1), RFC 5322 (Internet Message Format).
+
+Project repository: L<https://github.com/madduck/mailplate>
+
+=head1 AUTHOR
+
+Copyright © 2026 Martijn Vermaat (L<madduck|mailto:madduck@madduck.net>).
+
+License MIT.
