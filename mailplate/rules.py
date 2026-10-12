@@ -13,7 +13,7 @@ from email.message import Message
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .profile import Profile, Rule
+    from .profile import Rule
 
 
 def _repair_surrogates(text: str) -> str:
@@ -237,26 +237,3 @@ def _match_rule_captures(rule: Rule, message: Message) -> dict[str, str]:
     if not m:
         return {}
     return {k: v for k, v in m.groupdict().items() if v is not None}
-
-
-def profile_matches(profile: Profile, message: Message) -> bool:
-    """
-    Check whether a profile's rules all match the given message.
-
-    This helper enforces strict AND semantics: every rule must match.
-    CLI auto-detection does not use it; it instead sums the weights of
-    the matching rules and compares the totals (see
-    :func:`mailplate.cli._pick_best_profile`).
-
-    Args:
-        profile: The profile to evaluate.
-        message: The parsed email message.
-
-    Returns:
-        ``True`` if all rules match.
-
-    """
-    if not profile.rules:
-        # A profile with no rules matches everything (catch-all).
-        return True
-    return all(_match_rule(rule, message) for rule in profile.rules)
