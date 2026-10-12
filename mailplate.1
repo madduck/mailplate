@@ -30,6 +30,9 @@ other than
 .B text/plain
 (for example an HTML part or an attachment) is rejected with an error.
 The output is a bare RFC 5322 message without MIME headers.
+Non\-ASCII characters in header bodies are written verbatim as UTF\-8;
+.B mailplate
+does not RFC 2047\-encode them.
 .\"
 .SH OPTIONS
 .TP
