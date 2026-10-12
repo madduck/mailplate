@@ -204,7 +204,7 @@ def _match_rule_for_scoring(rule: Rule, message: Message) -> bool:
     "profile_dirs",
     type=click.Path(exists=False, file_okay=False, path_type=Path),
     multiple=True,
-    help="Additional directory to search for profile files.",
+    help="Additional directory to search for profile files (recursively).",
 )
 @click.option(
     "-l",
