@@ -182,6 +182,41 @@ get_long_date = date '+\&%d \&%B \&%Y'
 .fi
 .RE
 .PP
+.I "INCLUDE files"
+.br
+A file named exactly
+.B INCLUDE
+(no extension) in a profile directory is applied automatically to every
+profile in that directory and its subdirectories.  When
+.I foo/bar/prof.mplt
+is loaded, the root\-level
+.BR INCLUDE ,
+.IR foo/INCLUDE ,
+and
+.I foo/bar/INCLUDE
+are applied in that order (least specific first), followed by the
+profile itself.  An
+.B INCLUDE
+file uses the same format as a profile but must not contain a
+.B [profile]
+section.
+.PP
+The
+.BR [rules] ,
+.BR [headers] ,
+.B [helpers] ,
+and
+.B [remove_headers]
+sections accumulate across all files, with the more specific file
+winning on a name collision; verbatim duplicate rules are kept once.
+The
+.BR [greeting] ,
+.BR [closing] ,
+and
+.B [signature]
+sections are single\-valued: the most specific file that defines the
+section wins, and an explicitly empty section clears an inherited one.
+.PP
 .I Idempotency
 .br
 If the body already starts with the rendered greeting and/or ends with
