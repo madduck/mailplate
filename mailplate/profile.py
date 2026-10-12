@@ -83,6 +83,9 @@ class Profile:
     Attributes:
         name: Human-readable profile name.
         path: Filesystem path of the profile.
+        relative_path: Path of the profile relative to the directory it
+            was discovered in, or ``None`` for profiles loaded directly
+            from a path.  See :attr:`stem`.
         rules: Rules used for auto-detection (all must match).
         headers: Mapping of header names to their values.
         greeting: Lines to prepend to the body.
@@ -93,6 +96,7 @@ class Profile:
 
     name: str
     path: Path
+    relative_path: Path | None = None
     rules: list[Rule] = field(default_factory=list)
     headers: dict[str, str] = field(default_factory=dict)
     remove_headers: list[str] = field(default_factory=list)
@@ -103,7 +107,19 @@ class Profile:
 
     @property
     def stem(self) -> str:
-        """Return the filename stem (name without suffix)."""
+        """
+        Return the profile identifier.
+
+        Profiles discovered by :func:`discover_profiles` are identified
+        by their path relative to the scanned directory, without the
+        file extension, so that profiles with the same filename in
+        different subdirectories stay distinct (e.g. ``work/foo`` for
+        ``work/foo.mplt``).  Profiles loaded directly from a path are
+        identified by their filename stem.
+
+        """
+        if self.relative_path is not None:
+            return self.relative_path.with_suffix("").as_posix()
         return self.path.stem
 
 
@@ -276,14 +292,19 @@ def discover_profiles(
     Profile files are recognised by the ``.mplt`` extension and are
     searched for recursively, so profiles may live either directly in a
     scanned directory or in any of its subdirectories.  All discovered
-    profiles are treated alike regardless of their nesting depth.
+    profiles are treated alike regardless of their nesting depth.  Each
+    profile's :attr:`~Profile.stem` is its path relative to the scanned
+    directory (without the ``.mplt`` extension), so profiles in
+    different subdirectories do not collide.
 
     Args:
         directories: List of directories to scan for profiles.
 
     Returns:
         A list of loaded :class:`Profile` instances, sorted by path
-        within each scanned directory.
+        within each scanned directory.  When the same file is reachable
+        through several scan roots, the first root that discovers it
+        determines its relative path.
 
     """
     profiles: list[Profile] = []
@@ -300,9 +321,13 @@ def discover_profiles(
                 continue
             seen.add(canonical)
             try:
-                profiles.append(load_profile(file_path))
+                profile = load_profile(file_path)
             except ProfileError:
                 # Silently skip malformed profiles.
                 continue
+            # Remember where the profile sits relative to the scanned
+            # directory so its identifier reflects the subdirectory.
+            profile.relative_path = file_path.relative_to(directory)
+            profiles.append(profile)
 
     return profiles
