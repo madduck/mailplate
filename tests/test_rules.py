@@ -177,6 +177,76 @@ class TestProfileMatches:
         msg = self._make_message({}, "body text")
         assert profile_matches(profile, msg) is False
 
+    def test_rcpt_rule_matches_to(self) -> None:
+        """A rcpt rule matches against the To header."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            rules=[Rule(kind="rcpt", value=".*@example\\.com")],
+        )
+        msg = self._make_message({"To": "alice@example.com"})
+        assert profile_matches(profile, msg) is True
+
+    def test_rcpt_rule_matches_cc(self) -> None:
+        """A rcpt rule matches against the Cc header."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            rules=[Rule(kind="rcpt", value=".*@example\\.com")],
+        )
+        msg = self._make_message({"Cc": "alice@example.com"})
+        assert profile_matches(profile, msg) is True
+
+    def test_rcpt_rule_matches_bcc(self) -> None:
+        """A rcpt rule matches against the Bcc header."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            rules=[Rule(kind="rcpt", value=".*@example\\.com")],
+        )
+        msg = self._make_message({"Bcc": "alice@example.com"})
+        assert profile_matches(profile, msg) is True
+
+    def test_rcpt_rule_matches_any_header(self) -> None:
+        """A rcpt rule applies if the regex matches any To/Cc/Bcc header."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            rules=[Rule(kind="rcpt", value="@example\\.com")],
+        )
+        msg = self._make_message({"To": "alice@other.com", "Cc": "bob@example.com"})
+        assert profile_matches(profile, msg) is True
+
+    def test_rcpt_rule_no_match(self) -> None:
+        """A rcpt rule does not match when no To/Cc/Bcc header matches."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            rules=[Rule(kind="rcpt", value=".*@example\\.com")],
+        )
+        msg = self._make_message({"To": "alice@other.com"})
+        assert profile_matches(profile, msg) is False
+
+    def test_rcpt_rule_missing_headers(self) -> None:
+        """A rcpt rule does not match when no recipient headers exist."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            rules=[Rule(kind="rcpt", value=".*@example\\.com")],
+        )
+        msg = self._make_message({})
+        assert profile_matches(profile, msg) is False
+
+    def test_rcpt_rule_invalid_regex(self) -> None:
+        """An invalid regex in a rcpt rule returns False."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            rules=[Rule(kind="rcpt", value="**[invalid")],
+        )
+        msg = self._make_message({"To": "alice@example.com"})
+        assert profile_matches(profile, msg) is False
+
     def test_all_rules_must_match_and(self) -> None:
         """All rules must match for the profile to match (AND)."""
         profile = Profile(
@@ -292,6 +362,33 @@ class TestMatchRuleCaptures:
 
         rule = Rule(kind="body", value="**[invalid")
         msg = self._make_message({}, "body")
+        result = _match_rule_captures(rule, msg)
+        assert result == {}
+
+    def test_rcpt_capture(self) -> None:
+        """A matching rcpt rule returns its named captures."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="rcpt", value="(?P<addr>[^@]+)@example\\.com")
+        msg = self._make_message({"Cc": "alice@example.com"})
+        result = _match_rule_captures(rule, msg)
+        assert result == {"addr": "alice"}
+
+    def test_rcpt_no_match_capture(self) -> None:
+        """A non-matching rcpt rule returns an empty dict."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="rcpt", value="(?P<addr>[^@]+)@example\\.com")
+        msg = self._make_message({"To": "alice@other.com"})
+        result = _match_rule_captures(rule, msg)
+        assert result == {}
+
+    def test_rcpt_invalid_regex_capture(self) -> None:
+        """An invalid rcpt regex returns an empty dict."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="rcpt", value="**[invalid")
+        msg = self._make_message({"To": "alice@example.com"})
         result = _match_rule_captures(rule, msg)
         assert result == {}
 

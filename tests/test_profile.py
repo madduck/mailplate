@@ -84,6 +84,22 @@ class TestParseRuleLine:
         assert result.value == "urgent"
         assert result.weight == 3
 
+    def test_rcpt_rule(self) -> None:
+        """A rcpt rule line is parsed into a ``rcpt`` rule."""
+        result = _parse_rule_line("rcpt = .*@example\\.com")
+        assert result is not None
+        assert result.kind == "rcpt"
+        assert result.value == ".*@example\\.com"
+        assert result.weight == 1
+
+    def test_rcpt_keyword_is_case_insensitive(self) -> None:
+        """The reserved ``rcpt`` keyword is recognised in any case."""
+        result = _parse_rule_line("RCPT:2 = urgent")
+        assert result is not None
+        assert result.kind == "rcpt"
+        assert result.value == "urgent"
+        assert result.weight == 2
+
     def test_body_rule_with_weight(self) -> None:
         """A body rule with an explicit weight is parsed."""
         result = _parse_rule_line("body:3 = urgent")
