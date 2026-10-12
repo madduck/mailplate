@@ -66,6 +66,9 @@ class Rule:
             name lower-cased so that it is case-insensitive; for
             ``body`` and ``rcpt`` rules it is a plain regex.
         weight: How many points this rule contributes when it matches.
+            May be zero to match a rule for its captures without
+            affecting the profile score, or negative to penalise a
+            profile.  Defaults to 1.
 
     """
 
@@ -77,9 +80,6 @@ class Rule:
         """Validate the rule kind."""
         if self.kind not in ("header", "body", "rcpt"):
             msg = f"Unknown rule kind: {self.kind!r}"
-            raise ProfileError(msg)
-        if self.weight < 1:
-            msg = f"Rule weight must be >= 1, got {self.weight}"
             raise ProfileError(msg)
 
 
@@ -139,8 +139,9 @@ class Profile:
 
 _SECTION_PATTERN = re.compile(r"^\[(\w+)\]\s*$")
 #: A rule line: ``HeaderName[:weight] = regexp`` or ``body[:weight] = regexp``.
+#: The weight may be zero or negative.
 _RULE_LINE_PATTERN = re.compile(
-    r"^(?P<name>[^=:\s]+)(?::(?P<weight>\d+))?\s*=\s*(?P<value>.*)$"
+    r"^(?P<name>[^=:\s]+)(?::(?P<weight>-?\d+))?\s*=\s*(?P<value>.*)$"
 )
 _HEADER_LINE_PATTERN = re.compile(r"^(.+?)\s*=\s*(.*)$")
 
@@ -156,7 +157,7 @@ def _parse_rule_line(line: str) -> Rule | None:
     or ``body:3 = regexp``; ``body`` is recognised case-insensitively
     too.  The reserved field name ``rcpt`` matches against all of the
     To/Cc/Bcc headers at once, e.g. ``rcpt = regexp`` or ``rcpt:2 =
-    regexp``.  The weight defaults to 1.
+    regexp``.  The weight defaults to 1 and may be zero or negative.
 
     Args:
         line: A line from the ``[rules]`` section.
