@@ -107,7 +107,8 @@ mailplate only handles **plain‑text** drafts — messages that contain
 anything other than ``text/plain`` (e.g. HTML parts, attachments) are
 rejected with an error.  The output is a bare RFC 5322 message without
 MIME headers (no ``MIME-Version``, ``Content-Type``, or
-``Content-Transfer-Encoding``).
+``Content-Transfer-Encoding``).  Non‑ASCII characters in header bodies
+are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
 
 ### Sections
 
