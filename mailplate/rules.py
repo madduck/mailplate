@@ -7,6 +7,7 @@ profile (if any) should be auto-selected.
 
 from __future__ import annotations
 
+import logging
 import re
 from email.header import decode_header
 from email.message import Message
@@ -14,6 +15,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .profile import Rule
+
+log = logging.getLogger(__name__)
 
 
 def _repair_surrogates(text: str) -> str:
@@ -187,6 +190,25 @@ def _match_rule(rule: Rule, message: Message) -> bool:
         return False
 
 
+def _named_captures(rule: Rule, match: re.Match[str]) -> dict[str, str]:
+    """
+    Extract named groups from a match and log them at DEBUG level.
+
+    Args:
+        rule: The rule that produced the match.
+        match: The successful regex match.
+
+    Returns:
+        A dict of named captures, omitting groups that did not
+        participate in the match.
+
+    """
+    captures = {k: v for k, v in match.groupdict().items() if v is not None}
+    if captures:
+        log.debug("rule %s %r captured %s", rule.kind, rule.value, captures)
+    return captures
+
+
 def _match_rule_captures(rule: Rule, message: Message) -> dict[str, str]:
     """
     Match a rule and return any named capture groups.
@@ -215,7 +237,7 @@ def _match_rule_captures(rule: Rule, message: Message) -> dict[str, str]:
             return {}
         if not m:
             return {}
-        return {k: v for k, v in m.groupdict().items() if v is not None}
+        return _named_captures(rule, m)
 
     if rule.kind == "rcpt":
         # The rule applies if the regex matches any of the To/Cc/Bcc
@@ -226,7 +248,7 @@ def _match_rule_captures(rule: Rule, message: Message) -> dict[str, str]:
             except re.error:
                 return {}
             if m:
-                return {k: v for k, v in m.groupdict().items() if v is not None}
+                return _named_captures(rule, m)
         return {}
 
     body = _get_body(message)
@@ -236,4 +258,4 @@ def _match_rule_captures(rule: Rule, message: Message) -> dict[str, str]:
         return {}
     if not m:
         return {}
-    return {k: v for k, v in m.groupdict().items() if v is not None}
+    return _named_captures(rule, m)
