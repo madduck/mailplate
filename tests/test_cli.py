@@ -276,10 +276,21 @@ class TestMainCommand:
         assert "personal" in result.output
         assert "Personal Profile" in result.output
 
-    def test_list_profiles_no_profiles(self, cli_runner: CliRunner) -> None:
-        """--list-profiles with no custom profiles still shows the default."""
-        # The default profile from ~/.config/mailplate/profiles/ exists,
-        # so --list-profiles always finds at least that one.
+    def test_list_profiles_no_profiles(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """--list-profiles lists profiles from the default directory."""
+        default_dir = tmp_path / "profiles"
+        default_dir.mkdir()
+        (default_dir / "default.mplt").write_text(
+            "[profile]\nname = Default\n", encoding="utf-8"
+        )
+        # Point the default search path at an isolated directory so the
+        # test does not depend on the host's real profile directories.
+        monkeypatch.setattr("mailplate.cli.DEFAULT_PROFILE_DIRS", [default_dir])
         result = cli_runner.invoke(
             main,
             args=["--list-profiles"],
