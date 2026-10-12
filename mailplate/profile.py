@@ -32,7 +32,7 @@ Profiles are stored as flat text files in a directory (typically
 
 Settings shared between profiles can be placed in a file named
 ``INCLUDE`` in any profile directory; it is merged into every profile
-found in that directory and its subdirectories.  See
+found in that directory and its subdirectories. See
 :func:`load_profile` for the merge rules.
 """
 
@@ -62,14 +62,14 @@ class Rule:
 
     Attributes:
         kind: What aspect of the email to inspect.
-        value: The value to match against.  For ``header`` rules this is
+        value: The value to match against. For ``header`` rules this is
             the canonical ``headername: regex`` form, with the field
             name lower-cased so that it is case-insensitive; for
             ``body`` and ``rcpt`` rules it is a plain regex.
         weight: How many points this rule contributes when it matches.
             May be zero to match a rule for its captures without
             affecting the profile score, or negative to penalise a
-            profile.  Defaults to 1.
+            profile. Defaults to 1.
 
     """
 
@@ -94,14 +94,14 @@ class Profile:
         path: Filesystem path of the profile.
         relative_path: Path of the profile relative to the directory it
             was discovered in, or ``None`` for profiles loaded directly
-            from a path.  See :attr:`stem`.
+            from a path. See :attr:`stem`.
         rules: Rules used for auto-detection (scored by weight).
         headers: Mapping of header names to their values.
         greeting: Lines to prepend to the body.
         closing: Lines to append before the signature.
         signature: Lines appended at the end of the message.
         defined_sections: Names of the sections that were actually
-            present in the profile text (lower-cased).  This
+            present in the profile text (lower-cased). This
             distinguishes a section that was omitted from one that was
             present but empty, which matters when merging an
             ``INCLUDE`` file with the profile that includes it.
@@ -129,7 +129,7 @@ class Profile:
         by their path relative to the scanned directory, without the
         file extension, so that profiles with the same filename in
         different subdirectories stay distinct (e.g. ``work/foo`` for
-        ``work/foo.mplt``).  Profiles loaded directly from a path are
+        ``work/foo.mplt``). Profiles loaded directly from a path are
         identified by their filename stem.
 
         """
@@ -152,13 +152,13 @@ def _parse_rule_line(line: str) -> Rule | None:
     Try to parse a single rule line.
 
     Header rules use the field name as the key, optionally suffixed with
-    a weight, e.g. ``From = regexp`` or ``From:5 = regexp``.  Field
-    names are case-insensitive and are normalised to lower case.  Body
+    a weight, e.g. ``From = regexp`` or ``From:5 = regexp``. Field
+    names are case-insensitive and are normalised to lower case. Body
     rules use the reserved field name ``body``, e.g. ``body = regexp``
     or ``body:3 = regexp``; ``body`` is recognised case-insensitively
-    too.  The reserved field name ``rcpt`` matches against all of the
+    too. The reserved field name ``rcpt`` matches against all of the
     To/Cc/Bcc headers at once, e.g. ``rcpt = regexp`` or ``rcpt:2 =
-    regexp``.  The weight defaults to 1 and may be zero or negative.
+    regexp``. The weight defaults to 1 and may be zero or negative.
 
     Args:
         line: A line from the ``[rules]`` section.
@@ -185,7 +185,7 @@ def _parse_rule_line(line: str) -> Rule | None:
             return Rule(kind="rcpt", value=value, weight=weight)
         if field == "header":
             # ``header`` is not a header rule anymore; it was the keyword
-            # of the old syntax.  Fail loudly rather than silently
+            # of the old syntax. Fail loudly rather than silently
             # treating it as a rule on a header literally named
             # "header".
             msg = (
@@ -241,10 +241,10 @@ def _merge_fragment(base: Profile, overlay: Profile) -> Profile:
     Merge a more specific profile fragment into a less specific one.
 
     Rules, helpers, headers, and ``remove_headers`` accumulate, with
-    ``overlay`` winning on name collisions.  ``greeting``, ``closing``,
+    ``overlay`` winning on name collisions. ``greeting``, ``closing``,
     and ``signature`` are single-valued: the ``overlay`` definition
     replaces the ``base`` one whenever the corresponding section is
-    present in ``overlay`` (even if it is empty).  ``overlay`` also
+    present in ``overlay`` (even if it is empty). ``overlay`` also
     supplies the metadata (name, path, relative path) of the result.
 
     Args:
@@ -252,7 +252,7 @@ def _merge_fragment(base: Profile, overlay: Profile) -> Profile:
         overlay: The more specific profile.
 
     Returns:
-        The merged :class:`Profile`.  ``base`` is modified in place and
+        The merged :class:`Profile`. ``base`` is modified in place and
         returned.
 
     """
@@ -293,7 +293,7 @@ def _include_paths(path: Path, root: Path) -> list[Path]:
         root: Root directory of the profile scan.
 
     Returns:
-        A list of candidate ``INCLUDE`` paths.  The list is empty when
+        A list of candidate ``INCLUDE`` paths. The list is empty when
         *path* does not live under *root*.
 
     """
@@ -320,7 +320,7 @@ def load_profile(path: Path, *, include_root: Path | None = None) -> Profile:
     Args:
         path: Path to the profile file.
         include_root: Root directory to resolve ``INCLUDE`` files
-            against.  When ``None`` no includes are applied.
+            against. When ``None`` no includes are applied.
 
     Returns:
         A populated :class:`Profile` instance.
@@ -431,11 +431,11 @@ def discover_profiles(
 
     Profile files are recognised by the ``.mplt`` extension and are
     searched for recursively, so profiles may live either directly in a
-    scanned directory or in any of its subdirectories.  All discovered
-    profiles are treated alike regardless of their nesting depth.  Each
+    scanned directory or in any of its subdirectories. All discovered
+    profiles are treated alike regardless of their nesting depth. Each
     profile's :attr:`~Profile.stem` is its path relative to the scanned
     directory (without the ``.mplt`` extension), so profiles in
-    different subdirectories do not collide.  Any ``INCLUDE`` files
+    different subdirectories do not collide. Any ``INCLUDE`` files
     between a scanned directory and a profile are merged into it (see
     :func:`load_profile`); ``INCLUDE`` files are not discovered as
     profiles themselves.
@@ -445,7 +445,7 @@ def discover_profiles(
 
     Returns:
         A list of loaded :class:`Profile` instances, sorted by path
-        within each scanned directory.  When the same file is reachable
+        within each scanned directory. When the same file is reachable
         through several scan roots, the first root that discovers it
         determines its relative path.
 

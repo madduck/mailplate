@@ -2,7 +2,7 @@
 Template engine for mailplate profiles.
 
 Profiles can contain ``{{ variable }}`` placeholders that get filled in
-with data extracted from the input email.  The following variables are
+with data extracted from the input email. The following variables are
 available:
 
 ``{{ body }}``
@@ -66,7 +66,7 @@ def _extract_name_and_email(address: str) -> tuple[str, str]:
         address: A single RFC5322 address (e.g. ``John Doe <john@e.com>``).
 
     Returns:
-        A ``(name, email)`` tuple.  Either component may be empty.
+        A ``(name, email)`` tuple. Either component may be empty.
 
     """
     name, email = parseaddr(address)
@@ -151,7 +151,7 @@ def _run_helper(command: str) -> str:
     Execute a helper command and return its stdout.
 
     The command string is split with :func:`shlex.split` to avoid
-    shell injection.  If the command exits with a non-zero status,
+    shell injection. If the command exits with a non-zero status,
     times out, or cannot be run, an error message is returned instead
     so that rendering can continue.
 

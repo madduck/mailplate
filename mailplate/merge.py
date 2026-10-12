@@ -22,7 +22,7 @@ from .template import render_template
 if TYPE_CHECKING:
     from .profile import Profile
 
-#: Policy used for serialising drafts.  ``utf8=True`` makes the
+#: Policy used for serialising drafts. ``utf8=True`` makes the
 #: generator emit non-ASCII header bodies verbatim as UTF-8 instead of
 #: RFC 2047-encoding them.
 _POLICY = policy.default.clone(utf8=True)
@@ -91,7 +91,7 @@ def _split_body_signature(text: str) -> tuple[str, str]:
     Split *text* into (body, signature) at ``^-- $``.
 
     The delimiter line itself is consumed and not included in either
-    part.  If no delimiter is found the entire text is the body and
+    part. If no delimiter is found the entire text is the body and
     the signature is empty.
 
     Args:
@@ -247,17 +247,17 @@ def _apply_headers(
     Apply profile headers to *message* in-place, preserving input order.
 
     Existing headers keep their original position even when the profile
-    overrides their value.  If the input repeats a header that the
+    overrides their value. If the input repeats a header that the
     profile overrides, the duplicates are collapsed into a single value
-    at the position of the first occurrence.  Headers that are not
-    present in the input are appended in profile order.  Headers listed
+    at the position of the first occurrence. Headers that are not
+    present in the input are appended in profile order. Headers listed
     in ``profile.remove_headers`` are dropped.
 
     Header values are rendered through the template engine so that
     placeholders like ``{{ subject }}``, ``{{ header:X-Custom }}``, or
-    ``{{ helper:get_quote }}`` are expanded.  Rendering is evaluated
+    ``{{ helper:get_quote }}`` are expanded. Rendering is evaluated
     against *original* so that placeholders refer to the untouched
-    input rather than values already overridden.  Existing headers are
+    input rather than values already overridden. Existing headers are
     copied verbatim; :func:`serialize_email` is responsible for
     emitting non-ASCII content as plain UTF-8.
 
@@ -302,7 +302,7 @@ def _apply_headers(
 
     # The public API cannot reorder existing headers, so rebuild the
     # header list: clear every header, then re-insert in the desired
-    # order.  The payload is left untouched.
+    # order. The payload is left untouched.
     for key in {name.lower() for name in message}:
         del message[key]
     for name, value in ordered:
@@ -336,7 +336,7 @@ def merge_profile(
     result: Message = copy.deepcopy(message)
 
     # 1. Set/override/remove headers from the profile, preserving the
-    #    order in which the input declared them.  Header values are
+    #    order in which the input declared them. Header values are
     #    rendered through the template engine so that placeholders like
     #    {{ subject }}, {{ header:X-Custom }}, or
     #    {{ helper:get_quote }} are expanded.
@@ -395,7 +395,7 @@ def serialize_email(message: Message) -> bytes:
     Serialise an email message back to RFC5322 bytes.
 
     Non-ASCII header bodies are written verbatim as UTF-8 instead of
-    being RFC 2047-encoded.  The message is not modified.
+    being RFC 2047-encoded. The message is not modified.
 
     Args:
         message: The email message to serialise.

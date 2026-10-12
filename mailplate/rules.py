@@ -21,7 +21,7 @@ def _repair_surrogates(text: str) -> str:
     Decode surrogate-escaped bytes embedded in *text* as UTF-8.
 
     The ``compat32`` email policy decodes raw 8-bit header bytes with
-    ``surrogateescape``.  Runs of such surrogate code points are turned
+    ``surrogateescape``. Runs of such surrogate code points are turned
     back into bytes and decoded as UTF-8, leaving all other characters
     untouched.
 
@@ -199,7 +199,7 @@ def _match_rule_captures(rule: Rule, message: Message) -> dict[str, str]:
         message: The parsed email message.
 
     Returns:
-        A dict of named captures.  Empty if the rule doesn't match.
+        A dict of named captures. Empty if the rule doesn't match.
 
     """
     if rule.kind == "header":
