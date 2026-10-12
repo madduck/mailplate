@@ -37,6 +37,13 @@ Filters can be chained with the pipe (``|``) syntax:
 
 ``{{ to_name | default("there") }}``
     Use ``to_name`` if available, otherwise fall back to ``"there"``.
+
+The ``default`` filter accepts either a quoted literal or a variable
+reference as its argument:
+
+``{{ rule:pmndomain | default(rule:domain) }}``
+    Use ``rule:pmndomain`` if available, otherwise fall back to the
+    value of ``rule:domain``.
 """
 
 from __future__ import annotations
@@ -109,18 +116,22 @@ def _first_address_email(
     return ""  # pragma: no cover (getaddresses always returns >= 1)
 
 
-def _apply_filter(value: str, filter_expr: str) -> str:
+def _apply_filter(value: str, filter_expr: str, context: dict[str, Any]) -> str:
     """
     Apply a single filter to a value.
 
     Supported filters:
 
-    - ``default("fallback")`` – return ``value`` if non-empty, else the
-      fallback string.
+    - ``default(fallback)`` – return ``value`` if non-empty, else
+      *fallback*. A quoted *fallback* (``default("there")``) is a
+      literal string; an unquoted one (``default(rule:domain)``) is a
+      variable reference resolved against *context*.
 
     Args:
         value: The current value.
         filter_expr: The filter expression (e.g. ``default("X")``).
+        context: The rendering context used to resolve variable
+            references in filter arguments.
 
     Returns:
         The filtered value.
@@ -129,14 +140,12 @@ def _apply_filter(value: str, filter_expr: str) -> str:
     filter_expr = filter_expr.strip()
     if filter_expr.startswith("default(") and filter_expr.endswith(")"):
         inner = filter_expr[len("default(") : -1].strip()
-        # Remove surrounding quotes.
-        if (
-            inner.startswith('"') and inner.endswith('"')
-        ) or (  # pragma: no cover (branch complexity)
+        # A quoted argument is a literal; anything else is a variable.
+        if (inner.startswith('"') and inner.endswith('"')) or (
             inner.startswith("'") and inner.endswith("'")
         ):
-            inner = inner[1:-1]
-        return value if value else inner
+            return value if value else inner[1:-1]
+        return value if value else _get_variable(inner, context)
     # Unknown filter – return the value unchanged.
     return value
 
@@ -268,7 +277,7 @@ def render_template(
         var_name = match.group(1)
         raw_value = _get_variable(var_name, context)
         if filter_expr := match.group(2):
-            return _apply_filter(raw_value, filter_expr)
+            return _apply_filter(raw_value, filter_expr, context)
         return raw_value
 
     return _PLACEHOLDER_RE.sub(_replacer, template)
