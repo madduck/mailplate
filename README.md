@@ -66,7 +66,9 @@ mailplate --output draft.eml < draft.eml
 
 Profiles are flat text files with a `.mplt` extension, stored in
 `~/.config/mailplate/profiles/` or `/etc/mailplate/profiles/`
-(extra directories can be added with `--profile-dir`).
+(extra directories can be added with `--profile-dir`).  Profile
+directories are scanned recursively, so profiles may also live in
+subdirectories and are treated identically wherever they are found.
 
 A profile is organised into sections:
 
@@ -219,11 +221,11 @@ closing lines.
 
 ## Files
 
-`~/.config/mailplate/profiles/*.mplt`
-:   User‑specific profiles.
+`~/.config/mailplate/profiles/**/*.mplt`
+:   User‑specific profiles (found recursively).
 
-`/etc/mailplate/profiles/*.mplt`
-:   System‑wide profiles.
+`/etc/mailplate/profiles/**/*.mplt`
+:   System‑wide profiles (found recursively).
 
 ## Exit status
 
