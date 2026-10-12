@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ import pytest
 from mailplate.profile import (
     ProfileError,
     Rule,
+    _include_paths,
     _parse_header_line,
     _parse_rule_line,
     discover_profiles,
@@ -388,3 +390,198 @@ class TestDiscoverProfiles:
         (tmp_path / "p.mplt").write_text("[profile]\nname = P\n", encoding="utf-8")
         profiles = discover_profiles([tmp_path, tmp_path])
         assert len(profiles) == 1
+
+
+class TestIncludePaths:
+    """Tests for _include_paths."""
+
+    def test_root_and_nested_ancestors(self, tmp_path: Path) -> None:
+        """All INCLUDE files from the root down are listed."""
+        path = tmp_path / "foo" / "bar" / "prof.mplt"
+        assert _include_paths(path, tmp_path) == [
+            tmp_path / "INCLUDE",
+            tmp_path / "foo" / "INCLUDE",
+            tmp_path / "foo" / "bar" / "INCLUDE",
+        ]
+
+    def test_profile_directly_in_root(self, tmp_path: Path) -> None:
+        """A top-level profile only sees the root INCLUDE."""
+        assert _include_paths(tmp_path / "prof.mplt", tmp_path) == [
+            tmp_path / "INCLUDE"
+        ]
+
+    def test_profile_outside_root(self, tmp_path: Path) -> None:
+        """A profile outside the scan root has no applicable includes."""
+        other = tmp_path / "other"
+        other.mkdir()
+        root = tmp_path / "root"
+        root.mkdir()
+        assert _include_paths(other / "prof.mplt", root) == []
+
+
+class TestIncludes:
+    """Tests for merging INCLUDE files into a profile."""
+
+    def test_ancestors_merge_least_specific_first(self, tmp_path: Path) -> None:
+        """Includes are applied root-most first, with the profile last."""
+        (tmp_path / "INCLUDE").write_text(
+            "[rules]\n"
+            "From = root@example\n"
+            "[headers]\n"
+            "X-Root = root\n"
+            "X-Shared = root\n"
+            "[helpers]\n"
+            "quote = root-quote\n"
+            "[remove_headers]\n"
+            "X-Root-Only\n"
+            "[greeting]\n"
+            "Root greeting\n"
+            "[signature]\n"
+            "Root signature\n",
+            encoding="utf-8",
+        )
+        foo = tmp_path / "foo"
+        foo.mkdir()
+        (foo / "INCLUDE").write_text(
+            "[rules]\n"
+            "body = foo-body\n"
+            "[headers]\n"
+            "X-Foo = foo\n"
+            "X-Shared = foo\n"
+            "[helpers]\n"
+            "quote = foo-quote\n"
+            "[remove_headers]\n"
+            "X-Foo-Only\n"
+            "[greeting]\n"
+            "Foo greeting\n",
+            encoding="utf-8",
+        )
+        bar = foo / "bar"
+        bar.mkdir()
+        (bar / "INCLUDE").write_text(
+            "[headers]\nX-Bar = bar\n[signature]\n",
+            encoding="utf-8",
+        )
+        profile_path = bar / "prof.mplt"
+        profile_path.write_text(
+            "[profile]\n"
+            "name = Leaf\n"
+            "[rules]\n"
+            "Subject = leaf\n"
+            "[headers]\n"
+            "X-Shared = leaf\n"
+            "[remove_headers]\n"
+            "X-Leaf-Only\n",
+            encoding="utf-8",
+        )
+
+        profile = load_profile(profile_path, include_root=tmp_path)
+
+        assert profile.name == "Leaf"
+        assert profile.path == profile_path
+        assert [(rule.kind, rule.value) for rule in profile.rules] == [
+            ("header", "from: root@example"),
+            ("body", "foo-body"),
+            ("header", "subject: leaf"),
+        ]
+        assert profile.headers == {
+            "X-Root": "root",
+            "X-Shared": "leaf",
+            "X-Foo": "foo",
+            "X-Bar": "bar",
+        }
+        assert profile.helpers == {"quote": "foo-quote"}
+        assert profile.remove_headers == [
+            "X-Root-Only",
+            "X-Foo-Only",
+            "X-Leaf-Only",
+        ]
+        # The more specific greeting wins; the empty [signature] section
+        # in bar/INCLUDE clears the inherited root signature.
+        assert profile.greeting == ["Foo greeting"]
+        assert profile.signature == []
+
+    def test_root_include_applies_to_top_level_profile(self, tmp_path: Path) -> None:
+        """A profile directly in the root inherits the root INCLUDE."""
+        (tmp_path / "INCLUDE").write_text("[greeting]\nHello\n", encoding="utf-8")
+        path = tmp_path / "prof.mplt"
+        path.write_text("[profile]\nname = P\n", encoding="utf-8")
+        profile = load_profile(path, include_root=tmp_path)
+        assert profile.greeting == ["Hello"]
+
+    def test_missing_include_files_are_skipped(self, tmp_path: Path) -> None:
+        """Only existing INCLUDE files are merged."""
+        (tmp_path / "INCLUDE").write_text("[greeting]\nHello\n", encoding="utf-8")
+        nested = tmp_path / "foo" / "bar"
+        nested.mkdir(parents=True)
+        path = nested / "prof.mplt"
+        path.write_text("[profile]\nname = P\n", encoding="utf-8")
+        profile = load_profile(path, include_root=tmp_path)
+        assert profile.greeting == ["Hello"]
+
+    def test_duplicates_dropped_keeping_first(self, tmp_path: Path) -> None:
+        """Verbatim duplicate rules and remove_headers are dropped."""
+        (tmp_path / "INCLUDE").write_text(
+            "[rules]\nFrom = dup@example\n[remove_headers]\nX-Dup\n",
+            encoding="utf-8",
+        )
+        path = tmp_path / "prof.mplt"
+        path.write_text(
+            "[profile]\n"
+            "name = P\n"
+            "[rules]\n"
+            "From = dup@example\n"
+            "Subject = leaf\n"
+            "[remove_headers]\n"
+            "X-Dup\n"
+            "X-Leaf\n",
+            encoding="utf-8",
+        )
+        profile = load_profile(path, include_root=tmp_path)
+        assert [(rule.kind, rule.value) for rule in profile.rules] == [
+            ("header", "from: dup@example"),
+            ("header", "subject: leaf"),
+        ]
+        assert profile.remove_headers == ["X-Dup", "X-Leaf"]
+
+    def test_profile_section_in_include_rejected(self, tmp_path: Path) -> None:
+        """A [profile] section in an INCLUDE file raises an error."""
+        (tmp_path / "INCLUDE").write_text("[profile]\nname = Nope\n", encoding="utf-8")
+        path = tmp_path / "prof.mplt"
+        path.write_text("[profile]\nname = P\n", encoding="utf-8")
+        with pytest.raises(ProfileError, match="not allowed in an INCLUDE"):
+            load_profile(path, include_root=tmp_path)
+
+    def test_without_include_root_ignores_include(self, tmp_path: Path) -> None:
+        """Without an include root no INCLUDE file is consulted."""
+        (tmp_path / "INCLUDE").write_text("[greeting]\nHello\n", encoding="utf-8")
+        path = tmp_path / "prof.mplt"
+        path.write_text("[profile]\nname = P\n", encoding="utf-8")
+        profile = load_profile(path)
+        assert profile.greeting == []
+
+
+class TestDiscoveryWithIncludes:
+    """Tests for INCLUDE handling during discovery."""
+
+    def test_discovery_applies_includes(self, tmp_path: Path) -> None:
+        """Discovered profiles inherit their ancestor INCLUDE files."""
+        (tmp_path / "INCLUDE").write_text("[greeting]\nHello\n", encoding="utf-8")
+        nested = tmp_path / "foo"
+        nested.mkdir()
+        (nested / "prof.mplt").write_text("[profile]\nname = P\n", encoding="utf-8")
+        # An INCLUDE file must never be discovered as a profile itself.
+        profiles = discover_profiles([tmp_path])
+        assert [p.stem for p in profiles] == ["foo/prof"]
+        assert profiles[0].greeting == ["Hello"]
+
+    def test_malformed_include_warns_and_skips(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A malformed INCLUDE yields a warning and skips the profile."""
+        (tmp_path / "INCLUDE").write_text("no section header\n", encoding="utf-8")
+        (tmp_path / "prof.mplt").write_text("[profile]\nname = P\n", encoding="utf-8")
+        with caplog.at_level(logging.WARNING, logger="mailplate.profile"):
+            profiles = discover_profiles([tmp_path])
+        assert profiles == []
+        assert "skipping" in caplog.text
