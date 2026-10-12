@@ -65,6 +65,32 @@ def _resolve_profile_dirs(extra: tuple[Path, ...] | None) -> list[Path]:
     return dirs
 
 
+def _resolve_log_level(verbose: int, debug: bool, quiet: bool) -> int | None:
+    """
+    Resolve the logging level from the command-line flags.
+
+    The most restrictive flag wins: ``--quiet`` beats ``--debug`` (or
+    ``-vv``), which beats ``--verbose``. When no flag is given, ``None``
+    is returned so that the caller leaves logging unconfigured.
+
+    Args:
+        verbose: Number of times ``--verbose`` was given.
+        debug: Whether ``--debug`` was given.
+        quiet: Whether ``--quiet`` was given.
+
+    Returns:
+        The logging level, or ``None`` for the default configuration.
+
+    """
+    if quiet:
+        return logging.ERROR
+    if debug or verbose >= 2:
+        return logging.DEBUG
+    if verbose == 1:
+        return logging.INFO
+    return None
+
+
 def _pick_best_profile(
     profiles: list[Profile], message: Message
 ) -> tuple[Profile | None, dict[str, str]]:
@@ -104,7 +130,7 @@ def _pick_best_profile(
     best_captures: dict[str, str] = {}
     catch_all: Profile | None = None
 
-    log.debug("evaluating %d profiles for auto-detection", len(profiles))
+    log.info("evaluating %d profiles for auto-detection", len(profiles))
     for profile in profiles:
         if not profile.rules:
             log.debug(
@@ -146,7 +172,7 @@ def _pick_best_profile(
 
     # Fall back to the first catch-all only when nothing scored positively.
     if best is None and catch_all is not None:
-        log.debug(
+        log.info(
             "no rule-based profile matched; falling back to catch-all %r (%s)",
             catch_all.stem,
             catch_all.name,
@@ -155,14 +181,14 @@ def _pick_best_profile(
     if best is not None:
         # Collect named captures from every matching rule of the winner.
         best_captures = _collect_captures(best, message)
-        log.debug(
+        log.info(
             "selected profile %r (%s) with score %d",
             best.stem,
             best.name,
             best_score,
         )
     else:
-        log.debug("no matching profile found")
+        log.info("no matching profile found")
     return best, best_captures
 
 
@@ -210,9 +236,22 @@ def _match_rule_for_scoring(rule: Rule, message: Message) -> bool:
 @click.option(
     "-v",
     "--verbose",
+    count=True,
+    help="Print progress to stderr (repeat for per-rule detail).",
+)
+@click.option(
+    "--debug",
+    "debug",
     is_flag=True,
     default=False,
-    help="Print diagnostic information to stderr.",
+    help="Print per-rule and capture detail to stderr.",
+)
+@click.option(
+    "-q",
+    "--quiet",
+    is_flag=True,
+    default=False,
+    help="Only print errors to stderr.",
 )
 @click.option(
     "-p",
@@ -249,7 +288,9 @@ def main(
     profile_dirs: tuple[Path, ...],
     list_profiles: bool,
     output: Path | None,
-    verbose: bool,
+    verbose: int,
+    debug: bool,
+    quiet: bool,
 ) -> None:
     """
     Apply a mailplate profile to an email draft.
@@ -258,9 +299,10 @@ def main(
     profile, and writes the result to stdout (or to the file specified
     with ``--output``).
     """
-    if verbose:
+    level = _resolve_log_level(verbose, debug, quiet)
+    if level is not None:
         logging.basicConfig(  # pragma: no cover
-            level=logging.DEBUG,
+            level=level,
             format="%(levelname)s %(message)s",
             stream=sys.stderr,
         )  # pragma: no cover
@@ -299,13 +341,7 @@ def main(
         captures = _collect_captures(profile, message)
     else:
         # Auto-detect the best profile.
-        log.debug("auto-detecting profile from %d candidate(s)", len(profiles))
         profile, captures = _pick_best_profile(profiles, message)
-        if captures:
-            log.debug(  # pragma: no cover
-                "named captures from rules: %s",
-                ", ".join(f"{k}={v!r}" for k, v in captures.items()),
-            )  # pragma: no cover
 
     if profile is None:
         # No profile matched (auto-detect) or none was specified;
