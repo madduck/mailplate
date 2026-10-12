@@ -34,6 +34,19 @@ class TestFindProfileByName:
         assert result is not None
         assert result.stem == "work"
 
+    def test_by_relative_path(self) -> None:
+        """A subdirectory profile can be found by its relative path."""
+        profiles = [
+            Profile(
+                name="Foo",
+                path=Path("/profiles/work/foo.mplt"),
+                relative_path=Path("work/foo.mplt"),
+            ),
+        ]
+        result = _find_profile_by_name(profiles, "work/foo")
+        assert result is not None
+        assert result.stem == "work/foo"
+
     def test_not_found(self) -> None:
         """Missing profile returns None."""
         profiles = [Profile(name="Work", path=Path("work.mplt"))]
@@ -232,6 +245,22 @@ class TestMainCommand:
         assert "Hi Bob," in body
         assert "Best,\nAlice" in body
         assert "--\nalice@example.com" in body
+
+    def test_explicit_nested_profile_success(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """A profile in a subdirectory is selected by its relative path."""
+        profile_dir = tmp_path / "profiles"
+        nested = profile_dir / "team"
+        nested.mkdir(parents=True)
+        (nested / "test.mplt").write_text(SAMPLE_PROFILE, encoding="utf-8")
+        result = cli_runner.invoke(
+            main,
+            args=["--profile", "team/test", "--profile-dir", str(profile_dir)],
+            input=EMAIL_HEADERS,
+        )
+        assert result.exit_code == 0
+        assert b"X-Mailer: mailplate-test/1.0" in result.stdout_bytes
 
     def test_output_to_file(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """The --output option writes to a file."""
