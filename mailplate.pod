@@ -7,7 +7,7 @@ mailplate - apply a mailplate profile to an email draft
 =head1 SYNOPSIS
 
 B<mailplate> [B<-p> I<NAME>] [B<-d> I<DIR>]... [B<-o> I<FILE>] [B<-l>]
-[B<-v>] [B<-h>] [B<--version>]
+[B<-v>]... [B<--debug>] [B<-q>] [B<-h>] [B<--version>]
 
 =head1 DESCRIPTION
 
@@ -41,9 +41,19 @@ A profile with no rules is a catch-all with score 0.
 
 =item B<-v>, B<--verbose>
 
-Print diagnostic information to standard error, including the profile
-search paths, discovery counts, per-rule match details, and the
-selection rationale.
+Print progress information to standard error at INFO level, including
+the number of profiles evaluated and the profile that was selected.
+Repeat the option (B<-vv>) for DEBUG-level detail.
+
+=item B<--debug>
+
+Print DEBUG-level detail to standard error: the profile search paths,
+discovery counts, per-rule match results, captured text, and byte
+counts for reads and writes. Equivalent to B<-vv>.
+
+=item B<-q>, B<--quiet>
+
+Print only errors to standard error, hiding warnings.
 
 =item B<-d>, B<--profile-dir> I<DIR>
 
