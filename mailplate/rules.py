@@ -8,11 +8,70 @@ profile (if any) should be auto-selected.
 from __future__ import annotations
 
 import re
+from email.header import decode_header
 from email.message import Message
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .profile import Profile, Rule
+
+
+def _repair_surrogates(text: str) -> str:
+    """
+    Decode surrogate-escaped bytes embedded in *text* as UTF-8.
+
+    The ``compat32`` email policy decodes raw 8-bit header bytes with
+    ``surrogateescape``.  Runs of such surrogate code points are turned
+    back into bytes and decoded as UTF-8, leaving all other characters
+    untouched.
+
+    Args:
+        text: The possibly surrogate-escaped string.
+
+    Returns:
+        The repaired string.
+
+    """
+    if not any(0xDC80 <= ord(char) <= 0xDCFF for char in text):
+        return text
+    parts: list[str] = []
+    buffered = bytearray()
+    for char in text:
+        code = ord(char)
+        if 0xDC80 <= code <= 0xDCFF:
+            buffered.append(code - 0xDC00)
+            continue
+        if buffered:
+            parts.append(buffered.decode("utf-8", errors="replace"))
+            buffered.clear()
+        parts.append(char)
+    if buffered:
+        parts.append(buffered.decode("utf-8", errors="replace"))
+    return "".join(parts)
+
+
+def _decode_header_value(value: str) -> str:
+    """
+    Decode a raw header value to plain Unicode text.
+
+    RFC 2047 encoded words are decoded using their declared charset, and
+    raw 8-bit bytes (represented as surrogate escapes by the ``compat32``
+    policy) are decoded as UTF-8.
+
+    Args:
+        value: The raw header value.
+
+    Returns:
+        The decoded header text.
+
+    """
+    parts: list[str] = []
+    for chunk, charset in decode_header(value):
+        if isinstance(chunk, bytes):
+            parts.append(chunk.decode(charset or "ascii", errors="replace"))
+        else:
+            parts.append(chunk)
+    return _repair_surrogates("".join(parts))
 
 
 def _get_header_value(message: Message, header_name: str) -> str:
@@ -24,10 +83,14 @@ def _get_header_value(message: Message, header_name: str) -> str:
         header_name: Case-insensitive header field name.
 
     Returns:
-        The header value, or ``""`` if absent.
+        The decoded header value, or ``""`` if absent.
 
     """
-    return message.get(header_name, "")
+    lower = header_name.lower()
+    for key, value in message.raw_items():
+        if key.lower() == lower:
+            return _decode_header_value(value)
+    return ""
 
 
 def _get_body(message: Message) -> str:
@@ -77,7 +140,7 @@ def _get_rcpt_values(message: Message) -> list[str]:
     return [
         value
         for header_name in ("To", "Cc", "Bcc")
-        if (value := message.get(header_name, ""))
+        if (value := _get_header_value(message, header_name))
     ]
 
 

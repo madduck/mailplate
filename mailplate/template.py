@@ -52,7 +52,7 @@ from email.message import Message
 from email.utils import getaddresses, parseaddr
 from typing import Any
 
-from .rules import _get_body
+from .rules import _decode_header_value, _get_body, _get_header_value
 
 #: Maximum time (seconds) a helper command may run before being killed.
 _HELPER_TIMEOUT = 5.0
@@ -236,17 +236,18 @@ def render_template(
 
     """
     # Build the rendering context from the message.
-    from_hdr = message.get("From", "")
-    to_hdr = message.get("To", "")
+    from_hdr = _get_header_value(message, "From")
+    to_hdr = _get_header_value(message, "To")
     from_name, from_email = _extract_name_and_email(from_hdr)
     to_name = _first_address_name(to_hdr)
     to_email = _first_address_email(to_hdr)
 
     # Collect all headers for {{ header:... }} lookups.
     all_headers: dict[str, str] = {}
-    for key, value in message.items():
-        if key.lower() not in all_headers:
-            all_headers[key.lower()] = value
+    for key, value in message.raw_items():
+        lower = key.lower()
+        if lower not in all_headers:
+            all_headers[lower] = _decode_header_value(value)
 
     context: dict[str, Any] = {
         "body": _get_body(message),
@@ -256,8 +257,8 @@ def render_template(
         "to": to_hdr,
         "to_name": to_name,
         "to_email": to_email,
-        "subject": message.get("Subject", ""),
-        "date": message.get("Date", ""),
+        "subject": _get_header_value(message, "Subject"),
+        "date": _get_header_value(message, "Date"),
         "_headers": all_headers,
         "_helpers": helpers or {},
         "_captures": captures or {},
