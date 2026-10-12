@@ -120,13 +120,11 @@ def _pick_best_profile(
 
         details: list[str] = []
         score = 0
-        captures: dict[str, str] = {}
         for rule in profile.rules:
             matched = _match_rule_for_scoring(rule, message)
             if matched:
                 score += rule.weight
                 details.append(f"  \u2714 {rule.kind} = {rule.value}")
-                captures.update(_match_rule_captures(rule, message))
             else:
                 details.append(f"  \u2718 {rule.kind} = {rule.value}")
         log.debug(
@@ -145,7 +143,6 @@ def _pick_best_profile(
             )
             best = profile
             best_score = score
-            best_captures = captures
 
     # Fall back to the first catch-all only when nothing scored positively.
     if best is None and catch_all is not None:
@@ -156,6 +153,8 @@ def _pick_best_profile(
         )
         best = catch_all
     if best is not None:
+        # Collect named captures from every matching rule of the winner.
+        best_captures = _collect_captures(best, message)
         log.debug(
             "selected profile %r (%s) with score %d",
             best.stem,
@@ -165,6 +164,28 @@ def _pick_best_profile(
     else:
         log.debug("no matching profile found")
     return best, best_captures
+
+
+def _collect_captures(profile: Profile, message: Message) -> dict[str, str]:
+    """
+    Collect named captures from every matching rule of a profile.
+
+    Non-matching rules contribute nothing, and captures from all
+    matching rules are merged in rule order.
+
+    Args:
+        profile: The profile whose rules to evaluate.
+        message: The parsed email message.
+
+    Returns:
+        A dict of named captures (empty when no rule matches or none
+        define named groups).
+
+    """
+    captures: dict[str, str] = {}
+    for rule in profile.rules:
+        captures.update(_match_rule_captures(rule, message))
+    return captures
 
 
 def _match_rule_for_scoring(rule: Rule, message: Message) -> bool:
@@ -273,7 +294,9 @@ def main(
             click.echo(f"Error: profile {profile_name!r} not found.", err=True)
             sys.exit(1)
         log.debug("explicit profile: %r (%s)", profile.stem, profile.name)
-        captures: dict[str, str] = {}
+        # The profile is selected explicitly, but its rules are still
+        # evaluated so that named captures can be used in templates.
+        captures = _collect_captures(profile, message)
     else:
         # Auto-detect the best profile.
         log.debug("auto-detecting profile from %d candidate(s)", len(profiles))
