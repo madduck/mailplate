@@ -119,104 +119,110 @@ as the output is expected to be further processed by a MUA, such as Mutt.
 
 ### Sections
 
-`[profile]`
-:   Profile metadata. The only field is `name`.
-    If absent the filename stem is used.
+#### `[profile]`
 
-`[rules]`
-:   Auto‑detection rules. Each line is ``HeaderName = regex`` for a
-    header rule or ``body = regex`` for the message body. Each rule is
-    matched independently: every matching rule adds its weight to the
-    profile's score, while a non-matching rule adds nothing. The
-    profile with the highest total score wins, provided that score is
-    at least 1. A rule can carry an optional weight by suffixing the
-    field name with ``:weight``; the weight influences profile scoring
-    and defaults to 1. Field names are matched case-insensitively. The
-    field name ``body`` is reserved for the body rule, and ``rcpt`` for
-    a rule matching against all of the To/Cc/Bcc headers at once (it
-    applies if the regex matches any one of them). The old
-    ``header = HeaderName: regex`` form (and its weighted variant) is no
-    longer accepted.
+Profile metadata. The only field is `name`. If absent the filename
+stem is used.
 
-    ``From:5 = .*@company\\.com``
-    :   A header rule worth 5 points instead of the default 1.
+#### `[rules]`
 
-    ``body:3 = urgent``
-    :   A body rule worth 3 points.
+Auto‑detection rules. Each line is `HeaderName = regex` for a header
+rule or `body = regex` for the message body. Each rule is matched
+independently: every matching rule adds its weight to the profile's
+score, while a non-matching rule adds nothing. The profile with the
+highest total score wins, provided that score is at least 1. A rule
+can carry an optional weight by suffixing the field name with
+`:weight`; the weight influences profile scoring and defaults to 1.
+Field names are matched case-insensitively. The field name `body` is
+reserved for the body rule, and `rcpt` for a rule matching against all
+of the To/Cc/Bcc headers at once (it applies if the regex matches any
+one of them). The old `header = HeaderName: regex` form (and its
+weighted variant) is no longer accepted.
 
-    ``X-Spam-Flag:0 = (?P<spam>YES)``
-    :   A rule worth 0 points. It does not affect the score, but its
-        named captures are still available to the template.
+For example:
 
-    ``X-Spam-Flag:-100 = YES``
-    :   A rule worth -100 points. A sufficiently negative weight stops
-        the profile from being selected whenever the rule matches.
+- `From:5 = .*@company\.com` — a header rule worth 5 points instead of
+  the default 1.
+- `body:3 = urgent` — a body rule worth 3 points.
+- `X-Spam-Flag:0 = (?P<spam>YES)` — a rule worth 0 points. It does not
+  affect the score, but its named captures are still available to the
+  template.
+- `X-Spam-Flag:-100 = YES` — a rule worth -100 points. A sufficiently
+  negative weight stops the profile from being selected whenever the
+  rule matches.
 
-    Use positive weights to make some rules more important than others
-    during auto-detection, a weight of 0 to collect captures without
-    affecting the score, and a negative weight to disqualify a profile
-    when a rule matches.
+Use positive weights to make some rules more important than others
+during auto-detection, a weight of 0 to collect captures without
+affecting the score, and a negative weight to disqualify a profile
+when a rule matches.
 
-    Named capture groups in a rule’s regexp become template
-    variables under the ``rule:`` namespace. For example::
+Named capture groups in a rule’s regexp become template variables
+under the `rule:` namespace. For example:
 
-        [rules]
-        From = .*@(?P<domain>[a-z0-9.]+)
+```ini
+[rules]
+From = .*@(?P<domain>[a-z0-9.]+)
+```
 
-    makes ``{{ rule:domain }}`` available in greeting, closing,
-    signature, and header values. Rules are evaluated for named
-    captures both during auto-detection and when a profile is selected
-    explicitly with ``--profile``.
+makes `{{ rule:domain }}` available in greeting, closing, signature,
+and header values. Rules are evaluated for named captures both during
+auto-detection and when a profile is selected explicitly with
+`--profile`.
 
-`[headers]`
-:   Header definitions. Each line is `Header‑Name = value`.
-    Existing headers with the same name (case‑insensitive) are
-    replaced. Template placeholders (see below) are expanded.
+#### `[headers]`
 
-    Header values can reference other headers via
-    ``{{ header:<Name> }}`` and the ``{{ subject }}``, ``{{ from }}``,
-    etc. shorthand variables.
+Header definitions. Each line is `Header‑Name = value`. Existing
+headers with the same name (case‑insensitive) are replaced. Template
+placeholders (see below) are expanded.
 
-`[greeting]`
-:   Lines inserted before the original body. A blank line between
-    sections is provided automatically. Template variables are
-    expanded.
+Header values can reference other headers via `{{ header:<Name> }}`
+and the `{{ subject }}`, `{{ from }}`, etc. shorthand variables.
 
-`[closing]`
-:   Lines inserted after the original body but before the signature.
-    Template variables are expanded.
+#### `[greeting]`
 
-`[signature]`
-:   Lines appended at the end of the message. Template variables are
-    expanded. The signature is separated from the closing by a
-    ``^-- $`` delimiter line.
+Lines inserted before the original body. A blank line between sections
+is provided automatically. Template variables are expanded.
 
-    The lines of the ``[signature]`` section are copied verbatim:
-    leading whitespace and blank lines are preserved exactly as
-    written in the profile.
+#### `[closing]`
 
-    If the original draft already contains a signature (i.e. text
-    following a ``^-- $`` line), that signature is replaced by the
-    profile’s ``[signature]`` section. If the profile does not
-    define a ``[signature]`` section, the original draft signature
-    is preserved unchanged.
+Lines inserted after the original body but before the signature.
+Template variables are expanded.
 
-    Greeting and closing idempotency (see below) applies only to the
-    body portion; the signature is never touched by that logic.
+#### `[signature]`
 
-`[remove_headers]`
-:   One header name per line; matching headers (case‑insensitive) are
-    deleted from the output. Takes effect after ``[headers]`` have been set.
+Lines appended at the end of the message. Template variables are
+expanded. The signature is separated from the closing by a `^-- $`
+delimiter line.
 
-`[helpers]`
-:   External command definitions. Each line is ``name = shell command``.
-    The command is invoked with :func:`shlex.split` and :func:`subprocess.run`
-    with a 5‑second timeout. Use ``{{ helper:<name> }}`` in template
-    sections to insert the command’s stdout::
+The lines of the `[signature]` section are copied verbatim: leading
+whitespace and blank lines are preserved exactly as written in the
+profile.
 
-        [helpers]
-        get_quote    = fortune -n2
-        get_long_date = date '+%d %B %Y'
+If the original draft already contains a signature (i.e. text
+following a `^-- $` line), that signature is replaced by the profile’s
+`[signature]` section. If the profile does not define a `[signature]`
+section, the original draft signature is preserved unchanged.
+
+Greeting and closing idempotency (see below) applies only to the body
+portion; the signature is never touched by that logic.
+
+#### `[remove_headers]`
+
+One header name per line; matching headers (case‑insensitive) are
+deleted from the output. Takes effect after `[headers]` have been set.
+
+#### `[helpers]`
+
+External command definitions. Each line is `name = shell command`. The
+command is invoked with `shlex.split` and `subprocess.run` with a
+5‑second timeout. Use `{{ helper:<name> }}` in template sections to
+insert the command’s stdout:
+
+```ini
+[helpers]
+get_quote     = fortune -n2
+get_long_date = date '+%d %B %Y'
+```
 
 Comments start with `#` and blank lines are ignored, except inside
 `[signature]`, whose content is preserved verbatim.
@@ -270,10 +276,10 @@ closing lines.
 
 ### Filters
 
-`{{ variable | default(fallback) }}`
-:   If *variable* is empty, use *fallback* instead. A quoted
-    *fallback* (`default("there")`) is a literal string; an unquoted
-    one (`default(rule:domain)`) is a variable reference.
+`{{ variable | default(fallback) }}` — if *variable* is empty, use
+*fallback* instead. A quoted *fallback* (`default("there")`) is a
+literal string; an unquoted one (`default(rule:domain)`) is a variable
+reference.
 
 Filters are applied from left to right, so several fallbacks can be
 chained:
@@ -286,19 +292,15 @@ implementation.
 
 ## Files
 
-`$XDG_CONFIG_HOME/mailplate/profiles/**/*.mplt`
-:   User‑specific profiles (found recursively).
-
-`/etc/mailplate/profiles/**/*.mplt`
-:   System‑wide profiles (found recursively).
+- `$XDG_CONFIG_HOME/mailplate/profiles/**/*.mplt` — user‑specific
+  profiles (found recursively).
+- `/etc/mailplate/profiles/**/*.mplt` — system‑wide profiles (found
+  recursively).
 
 ## Exit status
 
-0
-:   Successful completion.
-
-1
-:   An error occurred (profile not found, no input data, etc.).
+- `0` — successful completion.
+- `1` — an error occurred (profile not found, no input data, etc.).
 
 ## Version
 
