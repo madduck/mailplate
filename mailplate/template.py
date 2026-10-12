@@ -46,6 +46,9 @@ reference as its argument, and several fallbacks can be chained:
 ``{{ rule:pmndomain | default(rule:domain) | default("example.net") }}``
     Use the first non-empty of ``rule:pmndomain``, ``rule:domain``, or
     the literal ``"example.net"``.
+
+``default`` is the only filter provided. The engine supports a small
+subset of template syntax and is not a Jinja2 implementation.
 """
 
 from __future__ import annotations
