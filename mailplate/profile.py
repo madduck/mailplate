@@ -273,13 +273,17 @@ def discover_profiles(
     """
     Discover all profile files in the given directories.
 
-    Profile files are recognised by the ``.mplt`` extension.
+    Profile files are recognised by the ``.mplt`` extension and are
+    searched for recursively, so profiles may live either directly in a
+    scanned directory or in any of its subdirectories.  All discovered
+    profiles are treated alike regardless of their nesting depth.
 
     Args:
         directories: List of directories to scan for profiles.
 
     Returns:
-        A list of loaded :class:`Profile` instances, sorted by name.
+        A list of loaded :class:`Profile` instances, sorted by path
+        within each scanned directory.
 
     """
     profiles: list[Profile] = []
@@ -288,13 +292,17 @@ def discover_profiles(
     for directory in directories:
         if not directory.is_dir():
             continue
-        for file_path in sorted(directory.iterdir()):
-            if file_path.suffix == ".mplt" and file_path not in seen:
-                seen.add(file_path)
-                try:
-                    profiles.append(load_profile(file_path))
-                except ProfileError:
-                    # Silently skip malformed profiles.
-                    continue
+        for file_path in sorted(directory.rglob("*.mplt")):
+            # Resolve before deduplicating so that the same file found
+            # through nested scan roots is only loaded once.
+            canonical = file_path.resolve()
+            if canonical in seen:
+                continue
+            seen.add(canonical)
+            try:
+                profiles.append(load_profile(file_path))
+            except ProfileError:
+                # Silently skip malformed profiles.
+                continue
 
     return profiles
