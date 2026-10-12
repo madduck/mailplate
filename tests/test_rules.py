@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from email.message import Message
+
+import pytest
 
 from mailplate.profile import Rule
 from mailplate.rules import (
@@ -247,6 +250,16 @@ class TestMatchRuleCaptures:
         msg = self._make_message({"From": "a@example.com"})
         result = _match_rule_captures(rule, msg)
         assert result == {"domain": "example.com"}
+
+    def test_capture_is_logged_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """A matching named group is logged at DEBUG level."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="header", value="From:.*@(?P<domain>[a-z.]+)")
+        msg = self._make_message({"From": "a@example.com"})
+        with caplog.at_level(logging.DEBUG, logger="mailplate.rules"):
+            _match_rule_captures(rule, msg)
+        assert "captured {'domain': 'example.com'}" in caplog.text
 
     def test_header_capture_case_insensitive(self) -> None:
         """A capture is returned regardless of field-name casing."""
