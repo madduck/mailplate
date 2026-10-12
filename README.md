@@ -268,8 +268,10 @@ closing lines.
 
 ### Filters
 
-`{{ variable | default("fallback") }}`
-:   If *variable* is empty, use *fallback* instead.
+`{{ variable | default(fallback) }}`
+:   If *variable* is empty, use *fallback* instead. A quoted
+    *fallback* (`default("there")`) is a literal string; an unquoted
+    one (`default(rule:domain)`) is a variable reference.
 
 ## Files
 
