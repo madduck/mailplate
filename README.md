@@ -73,6 +73,8 @@ Profiles are flat text files with a `.mplt` extension, stored in
 (extra directories can be added with `--profile-dir`).  Profile
 directories are scanned recursively, so profiles may also live in
 subdirectories and are treated identically wherever they are found.
+Settings shared between profiles can be placed in a file named
+`INCLUDE` in any profile directory (see below).
 
 A profile is organised into sections:
 
@@ -191,6 +193,27 @@ MIME headers (no ``MIME-Version``, ``Content-Type``, or
         get_long_date = date '+%d %B %Y'
 
 Comments start with `#` and blank lines are ignored.
+
+### Including shared settings
+
+A file named exactly `INCLUDE` (with no extension) in a profile
+directory provides settings that are automatically applied to every
+profile in that directory and its subdirectories.  When
+`foo/bar/prof.mplt` is loaded, the INCLUDE files are applied in order
+from least to most specific — the root-level `INCLUDE`, then
+`foo/INCLUDE`, then `foo/bar/INCLUDE` — followed by the profile itself.
+An `INCLUDE` file uses the same format as a profile, except that it
+must not contain a `[profile]` section.
+
+`[rules]`, `[headers]`, `[helpers]`, and `[remove_headers]` accumulate
+across all files; the more specific file wins on a name collision, and
+verbatim duplicate rules are kept only once.  `[greeting]`,
+`[closing]`, and `[signature]` are single‑valued: the most specific
+file that defines the section wins.  An explicitly empty section (for
+example a `[signature]` header with no lines) clears an inherited one.
+
+`INCLUDE` files are not listed by `--list-profiles` and cannot be
+selected as a profile.
 
 ### Idempotency
 
