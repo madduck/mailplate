@@ -294,6 +294,11 @@ reference:
 
   {{ rule:pmndomain | default(rule:domain) }}
 
+Filters are applied from left to right, so several fallbacks can be
+chained:
+
+  {{ rule:pmndomain | default(rule:domain) | default("example.net") }}
+
 =head1 FILES
 
 =over 4
