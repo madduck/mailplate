@@ -335,7 +335,20 @@ class TestDiscoverProfiles:
         (nested / "deep.mplt").write_text("[profile]\nname = Deep\n", encoding="utf-8")
         (nested / "ignored.txt").write_text("not a profile", encoding="utf-8")
         profiles = discover_profiles([tmp_path])
-        assert {p.stem for p in profiles} == {"top", "deep"}
+        assert {p.stem for p in profiles} == {"top", "team/project/deep"}
+
+    def test_subdirectory_profiles_keep_distinct_stems(self, tmp_path: Path) -> None:
+        """Same-named profiles in different subdirectories stay distinct."""
+        (tmp_path / "work").mkdir()
+        (tmp_path / "personal").mkdir()
+        (tmp_path / "work" / "foo.mplt").write_text(
+            "[profile]\nname = Work Foo\n", encoding="utf-8"
+        )
+        (tmp_path / "personal" / "foo.mplt").write_text(
+            "[profile]\nname = Personal Foo\n", encoding="utf-8"
+        )
+        profiles = discover_profiles([tmp_path])
+        assert {p.stem for p in profiles} == {"work/foo", "personal/foo"}
 
     def test_nested_scan_roots_deduplicated(self, tmp_path: Path) -> None:
         """A profile is not duplicated when both a parent and a nested
@@ -345,7 +358,9 @@ class TestDiscoverProfiles:
         (nested / "p.mplt").write_text("[profile]\nname = P\n", encoding="utf-8")
         profiles = discover_profiles([tmp_path, nested])
         assert len(profiles) == 1
-        assert profiles[0].stem == "p"
+        # The parent scan root is searched first, so that is the path the
+        # profile is identified by.
+        assert profiles[0].stem == "sub/p"
 
     def test_skips_malformed(self, tmp_path: Path) -> None:
         """Malformed profile files are silently skipped."""
