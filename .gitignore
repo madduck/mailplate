@@ -1,4 +1,7 @@
 /.envrc
+/build/
+/dist/
+/mailplate.1
 *_cache/
 *.egg-info/
 __pycache__
