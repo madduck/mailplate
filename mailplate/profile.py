@@ -9,7 +9,7 @@ Profiles are stored as flat text files in a directory (typically
     name = Work
 
     [rules]
-    # All rules must match for auto-detection (AND logic).
+    # Every matching rule adds its weight to the profile's score.
     From = .*@company\\.com
     List-Id = .*lists\\.company\\.com
     body = \\[company-internal\\]
@@ -56,8 +56,9 @@ class Rule:
     """
     A single matching rule within a profile.
 
-    All rules belonging to a profile must match for that profile to be
-    auto-detected (AND logic).
+    Rules are matched independently: every matching rule adds its
+    weight to the profile's score, and the profile with the highest
+    total score wins (provided that score is at least 1).
 
     Attributes:
         kind: What aspect of the email to inspect.
@@ -94,7 +95,7 @@ class Profile:
         relative_path: Path of the profile relative to the directory it
             was discovered in, or ``None`` for profiles loaded directly
             from a path.  See :attr:`stem`.
-        rules: Rules used for auto-detection (all must match).
+        rules: Rules used for auto-detection (scored by weight).
         headers: Mapping of header names to their values.
         greeting: Lines to prepend to the body.
         closing: Lines to append before the signature.
