@@ -278,6 +278,10 @@ chained:
 
 `{{ rule:pmndomain | default(rule:domain) | default("example.net") }}`
 
+`default` is the only filter mailplate provides. The template engine
+supports a small subset of template syntax and is not a Jinja2
+implementation.
+
 ## Files
 
 `~/.config/mailplate/profiles/**/*.mplt`
