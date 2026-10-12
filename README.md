@@ -48,15 +48,21 @@ mailplate < draft.eml > rewritten.eml
 mailplate --list-profiles
 ```
 
-### Verbose logging
+### Logging
+
+Diagnostics are written to standard error:
+
+- `-v` / `--verbose` prints progress at INFO level.
+- `-vv` or `--debug` prints per‑rule and capture detail at DEBUG level.
+- `-q` / `--quiet` prints only errors, hiding warnings.
 
 ```sh
-mailplate --verbose < draft.eml
+mailplate -vv < draft.eml
 ```
 
-Prints diagnostic information to stderr: profile search paths,
-discovery counts, per‑rule match/fail for every candidate,
-selection rationale, and byte counts for reads and writes.
+DEBUG output includes the profile search paths, discovery counts,
+per‑rule match/fail for every candidate, captured text, the selection
+rationale, and byte counts for reads and writes.
 
 ### In‑place replacement (via temporary file)
 
