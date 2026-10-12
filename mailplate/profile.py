@@ -29,14 +29,22 @@ Profiles are stored as flat text files in a directory (typically
     {{ from_name }}
     {{ from_email }}
     My Company Inc.
+
+Settings shared between profiles can be placed in a file named
+``INCLUDE`` in any profile directory; it is merged into every profile
+found in that directory and its subdirectories.  See
+:func:`load_profile` for the merge rules.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
+
+log = logging.getLogger(__name__)
 
 
 class ProfileError(Exception):
@@ -91,6 +99,11 @@ class Profile:
         greeting: Lines to prepend to the body.
         closing: Lines to append before the signature.
         signature: Lines appended at the end of the message.
+        defined_sections: Names of the sections that were actually
+            present in the profile text (lower-cased).  This
+            distinguishes a section that was omitted from one that was
+            present but empty, which matters when merging an
+            ``INCLUDE`` file with the profile that includes it.
 
     """
 
@@ -104,6 +117,7 @@ class Profile:
     greeting: list[str] = field(default_factory=list)
     closing: list[str] = field(default_factory=list)
     signature: list[str] = field(default_factory=list)
+    defined_sections: set[str] = field(default_factory=set)
 
     @property
     def stem(self) -> str:
@@ -199,32 +213,150 @@ def _parse_header_line(line: str) -> tuple[str, str] | None:
     return None
 
 
-def load_profile(path: Path) -> Profile:
+def _dedupe(items: list[str]) -> list[str]:
+    """
+    Return *items* with duplicates removed, keeping the first occurrence.
+
+    Args:
+        items: The list to deduplicate.
+
+    Returns:
+        A new list preserving the original order.
+
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result
+
+
+def _merge_fragment(base: Profile, overlay: Profile) -> Profile:
+    """
+    Merge a more specific profile fragment into a less specific one.
+
+    Rules, helpers, headers, and ``remove_headers`` accumulate, with
+    ``overlay`` winning on name collisions.  ``greeting``, ``closing``,
+    and ``signature`` are single-valued: the ``overlay`` definition
+    replaces the ``base`` one whenever the corresponding section is
+    present in ``overlay`` (even if it is empty).  ``overlay`` also
+    supplies the metadata (name, path, relative path) of the result.
+
+    Args:
+        base: The less specific profile.
+        overlay: The more specific profile.
+
+    Returns:
+        The merged :class:`Profile`.  ``base`` is modified in place and
+        returned.
+
+    """
+    seen_rules: set[Rule] = set()
+    merged_rules: list[Rule] = []
+    for rule in [*base.rules, *overlay.rules]:
+        if rule in seen_rules:
+            continue
+        seen_rules.add(rule)
+        merged_rules.append(rule)
+    base.rules = merged_rules
+
+    base.headers.update(overlay.headers)
+    base.helpers.update(overlay.helpers)
+    base.remove_headers = _dedupe([*base.remove_headers, *overlay.remove_headers])
+
+    for section in ("greeting", "closing", "signature"):
+        if section in overlay.defined_sections:
+            setattr(base, section, list(getattr(overlay, section)))
+
+    base.defined_sections |= overlay.defined_sections
+    base.name = overlay.name
+    base.path = overlay.path
+    base.relative_path = overlay.relative_path
+    return base
+
+
+def _include_paths(path: Path, root: Path) -> list[Path]:
+    """
+    List the ``INCLUDE`` files that apply to a profile.
+
+    For a profile at ``root/foo/bar/prof.mplt`` this yields
+    ``root/INCLUDE``, ``root/foo/INCLUDE``, and
+    ``root/foo/bar/INCLUDE``, least specific first.
+
+    Args:
+        path: Path of the profile file.
+        root: Root directory of the profile scan.
+
+    Returns:
+        A list of candidate ``INCLUDE`` paths.  The list is empty when
+        *path* does not live under *root*.
+
+    """
+    try:
+        relative = path.parent.relative_to(root)
+    except ValueError:
+        return []
+    paths = [root / "INCLUDE"]
+    current = root
+    for part in relative.parts:
+        current = current / part
+        paths.append(current / "INCLUDE")
+    return paths
+
+
+def load_profile(path: Path, *, include_root: Path | None = None) -> Profile:
     """
     Load and parse a profile from a flat text file.
 
+    When *include_root* is given, any ``INCLUDE`` files between that
+    root and the profile's own directory are merged in, least specific
+    first, before the profile itself is applied on top.
+
     Args:
         path: Path to the profile file.
+        include_root: Root directory to resolve ``INCLUDE`` files
+            against.  When ``None`` no includes are applied.
 
     Returns:
         A populated :class:`Profile` instance.
 
     Raises:
-        ProfileError: If the file cannot be parsed.
-        OSError: If the file cannot be read.
+        ProfileError: If the file (or one of its includes) cannot be
+            parsed.
+        OSError: If a file cannot be read.
 
     """
     text = path.read_text(encoding="utf-8")
-    return _parse_profile(text, path)
+    profile = _parse_profile(text, path)
+    if include_root is None:
+        return profile
+
+    fragments: list[Profile] = []
+    for include_path in _include_paths(path, include_root):
+        if not include_path.is_file():
+            continue
+        include_text = include_path.read_text(encoding="utf-8")
+        fragments.append(_parse_profile(include_text, include_path, is_include=True))
+    fragments.append(profile)
+
+    merged = fragments[0]
+    for fragment in fragments[1:]:
+        merged = _merge_fragment(merged, fragment)
+    return merged
 
 
-def _parse_profile(text: str, path: Path) -> Profile:
+def _parse_profile(text: str, path: Path, *, is_include: bool = False) -> Profile:
     """
     Parse profile text into a :class:`Profile`.
 
     Args:
         text: Raw text content of the profile file.
         path: Filesystem path (used for metadata, not reading).
+        is_include: Whether the text comes from an ``INCLUDE`` file, in
+            which case a ``[profile]`` section is rejected.
 
     Returns:
         A populated :class:`Profile`.
@@ -246,6 +378,12 @@ def _parse_profile(text: str, path: Path) -> Profile:
         # Section header.
         if match := _SECTION_PATTERN.match(stripped):
             current_section = match.group(1).lower()
+            if is_include and current_section == "profile":
+                msg = (
+                    f"The [profile] section is not allowed in an INCLUDE file ({path})"
+                )
+                raise ProfileError(msg)
+            profile.defined_sections.add(current_section)
             continue
 
         if current_section is None:
@@ -295,7 +433,10 @@ def discover_profiles(
     profiles are treated alike regardless of their nesting depth.  Each
     profile's :attr:`~Profile.stem` is its path relative to the scanned
     directory (without the ``.mplt`` extension), so profiles in
-    different subdirectories do not collide.
+    different subdirectories do not collide.  Any ``INCLUDE`` files
+    between a scanned directory and a profile are merged into it (see
+    :func:`load_profile`); ``INCLUDE`` files are not discovered as
+    profiles themselves.
 
     Args:
         directories: List of directories to scan for profiles.
@@ -321,9 +462,11 @@ def discover_profiles(
                 continue
             seen.add(canonical)
             try:
-                profile = load_profile(file_path)
-            except ProfileError:
-                # Silently skip malformed profiles.
+                profile = load_profile(file_path, include_root=directory)
+            except (OSError, ProfileError) as exc:
+                # Warn about malformed profiles and include files, then
+                # skip them rather than aborting the whole run.
+                log.warning("skipping %s: %s", file_path, exc)
                 continue
             # Remember where the profile sits relative to the scanned
             # directory so its identifier reflects the subdirectory.
