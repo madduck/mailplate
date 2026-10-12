@@ -1,6 +1,6 @@
 .\" mailplate - apply a mailplate profile to an RFC5322 email draft
 .\"
-.TH MAILPLATE 1 "2026-10-11" "mailplate" "User Commands"
+.TH MAILPLATE 1 "2026-10-12" "mailplate" "User Commands"
 .\"
 .SH NAME
 mailplate \- apply a mailplate profile to an RFC5322 email draft
@@ -11,6 +11,7 @@ mailplate \- apply a mailplate profile to an RFC5322 email draft
 [\fB\-d\fR \fIDIR\fR]...
 [\fB\-o\fR \fIFILE\fR]
 [\fB\-l\fR]
+[\fB\-v\fR]
 [\fB\-h\fR]
 [\fB\-\-version\fR]
 .SH DESCRIPTION
@@ -23,6 +24,12 @@ The profile controls which headers are added or overridden, how the
 body is restructured (greeting, closing, signature blocks), and all
 sections can contain template placeholders that are filled with data
 extracted from the incoming message.
+.PP
+Only plain\-text drafts are supported: a message containing anything
+other than
+.B text/plain
+(for example an HTML part or an attachment) is rejected with an error.
+The output is a bare RFC 5322 message without MIME headers.
 .\"
 .SH OPTIONS
 .TP
@@ -34,6 +41,11 @@ the display name).  When this option is omitted,
 auto\-detects the best matching profile by evaluating each profile's
 rules against the message and selecting the one with the most matches.
 A profile with no rules is a catch\-all with score 0.
+.TP
+.BR \-v ", " \-\-verbose
+Print diagnostic information to standard error, including the profile
+search paths, discovery counts, per\-rule match details, and the
+selection rationale.
 .TP
 .BR \-d ", " \-\-profile-dir " " \fIDIR\fR
 Add \fIDIR\fR to the list of directories scanned for profile files.
@@ -64,11 +76,11 @@ Comments start with
 .B #
 and blank lines are ignored.
 .PP
-.IP \fB[profile]\fR 16
-Profile metadata.  The only recognized field is
+.IP \fB[profile]\fR 18
+Profile metadata.  The only recognised field is
 .BR name .
 If absent, the filename stem is used as the display name.
-.IP \fB[rules]\fR 16
+.IP \fB[rules]\fR 18
 Auto\-detection rules.  Each line has the form
 .RS
 .IP \[bu]
@@ -79,6 +91,10 @@ Auto\-detection rules.  Each line has the form
 \fBbody\fR = \fIregex\fR
 .IP \[bu]
 \fBbody\fR:\fIweight\fR = \fIregex\fR
+.IP \[bu]
+\fBrcpt\fR = \fIregex\fR
+.IP \[bu]
+\fBrcpt\fR:\fIweight\fR = \fIregex\fR
 .RE
 .IP
 The optional
@@ -86,26 +102,85 @@ The optional
 defaults to 1 and influences auto\-detection scoring.  Field names are
 matched case\-insensitively.  The field name
 .B body
-is reserved for the body rule.  The old
+is reserved for the body rule; the field name
+.B rcpt
+matches against all of the
+.BR To ,
+.BR Cc ,
+and
+.B Bcc
+headers at once (the rule applies if the regexp matches any of them).
+The old
 .B header =
 form is no longer accepted.
 .IP
-All rules inside a section must match for the profile to be selected
+All rules inside a profile must match for the profile to be selected
 (AND semantics).  For OR semantics create multiple profiles.
-.IP \fB[headers]\fR 16
+.IP
+Named capture groups in a rule's regexp become template variables in
+the
+.B rule:
+namespace.  For example, the rule
+.RS
+.IP
+.B From = .*@(?P<domain>[a-z0-9.]+)
+.RE
+.IP
+makes
+.B {{ rule:domain }}
+available in the
+.BR [headers] ,
+.BR [greeting] ,
+.BR [closing] ,
+and
+.B [signature]
+sections.
+.IP \fB[headers]\fR 18
 Header definitions in the form
 .BI "Header-Name = " value.
 Existing headers with the same name (case\-insensitive) are replaced.
-Template placeholders are not expanded in header values.
-.IP \fB[greeting]\fR 16
-Lines inserted before the original body.  Template variables are
-expanded.
-.IP \fB[closing]\fR 16
+Template placeholders are expanded in header values, so a value may
+reference other headers via
+.B {{ header:<Name> }}
+as well as the shorthand variables listed below.
+.IP \fB[greeting]\fR 18
+Lines inserted before the original body.  A blank line after the
+greeting is provided automatically.  Template variables are expanded.
+.IP \fB[closing]\fR 18
 Lines inserted after the original body but before the signature.
 Template variables are expanded.
-.IP \fB[signature]\fR 16
-Lines appended at the end of the message.  Template variables are
-expanded.
+.IP \fB[signature]\fR 18
+Lines appended at the end of the message, separated from the closing
+by a
+.B "-- "
+delimiter line.  Template variables are expanded.  If the original
+draft already contains a signature (text following a
+.B "-- "
+line), it is replaced by this section; if no
+.B [signature]
+section is defined, the original signature is preserved unchanged.
+.IP \fB[remove_headers]\fR 18
+One header name per line.  Matching headers (case\-insensitive) are
+deleted from the output, after
+.B [headers]
+have been applied.
+.IP \fB[helpers]\fR 18
+External command definitions in the form
+.BI "name = " "shell command" .
+The command is split with
+.B shlex.split
+and run without a shell, with a five\-second timeout.  Its standard
+output can be inserted with
+.B {{ helper:<name> }}
+in any template section.  For example:
+.RS
+.IP
+.nf
+[helpers]
+get_quote     = fortune \-n2
+get_long_date = date '+\&%d \&%B \&%Y'
+.fi
+.RE
 .PP
 .I Idempotency
 .br
@@ -118,6 +193,7 @@ extra greeting or closing lines.
 .\"
 .SH TEMPLATE VARIABLES
 The following placeholders can be used in the
+.BR [headers] ,
 .BR [greeting] ,
 .BR [closing] ,
 and
@@ -139,6 +215,8 @@ _
 {{ date }}	\fBDate\fR header value.
 {{ header:\fIname\fR }}	Value of an arbitrary header.
 {{ env:\fIvar\fR }}	Value of an environment variable.
+{{ helper:\fIname\fR }}	Output of a helper command from \fB[helpers]\fR.
+{{ rule:\fIcapture\fR }}	Named regexp group from a matching rule.
 .TE
 .PP
 The
@@ -177,6 +255,16 @@ mailplate \-\-profile personal \-o draft.eml < draft.eml
 List available profiles
 .RS
 mailplate \-\-list-profiles
+.RE
+.TP
+Apply a profile from a subdirectory
+.RS
+mailplate \-\-profile work/foo < draft.eml > rewritten.eml
+.RE
+.TP
+Print diagnostics to standard error
+.RS
+mailplate \-\-verbose < draft.eml > rewritten.eml
 .RE
 .\"
 .SH EXIT STATUS
