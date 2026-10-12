@@ -54,8 +54,9 @@ class Rule:
     Attributes:
         kind: What aspect of the email to inspect.
         value: The value to match against.  For ``header`` rules this is
-            the canonical ``HeaderName: regex`` form; for ``body`` rules
-            it is a plain regex.
+            the canonical ``headername: regex`` form, with the field
+            name lower-cased so that it is case-insensitive; for
+            ``body`` rules it is a plain regex.
         weight: How many points this rule contributes when it matches.
 
     """
@@ -119,9 +120,11 @@ def _parse_rule_line(line: str) -> Rule | None:
     Try to parse a single rule line.
 
     Header rules use the field name as the key, optionally suffixed with
-    a weight, e.g. ``From = regexp`` or ``From:5 = regexp``.  Body rules
-    use the reserved field name ``body``, e.g. ``body = regexp`` or
-    ``body:3 = regexp``.  The weight defaults to 1.
+    a weight, e.g. ``From = regexp`` or ``From:5 = regexp``.  Field
+    names are case-insensitive and are normalised to lower case.  Body
+    rules use the reserved field name ``body``, e.g. ``body = regexp``
+    or ``body:3 = regexp``; ``body`` is recognised case-insensitively
+    too.  The weight defaults to 1.
 
     Args:
         line: A line from the ``[rules]`` section.
@@ -134,13 +137,15 @@ def _parse_rule_line(line: str) -> Rule | None:
 
     """
     if match := _RULE_LINE_PATTERN.match(line):
-        name = match.group("name")
+        # Field names are case-insensitive, so compare and store them in
+        # their lower-cased form.
+        field = match.group("name").lower()
         weight_str = match.group("weight")
         value = match.group("value").strip()
         weight = int(weight_str) if weight_str else 1
-        if name.lower() == "body":
+        if field == "body":
             return Rule(kind="body", value=value, weight=weight)
-        if name.lower() == "header":
+        if field == "header":
             # ``header`` is not a header rule anymore; it was the keyword
             # of the old syntax.  Fail loudly rather than silently
             # treating it as a rule on a header literally named
@@ -150,9 +155,9 @@ def _parse_rule_line(line: str) -> Rule | None:
                 "longer supported; write 'HeaderName = regex' instead."
             )
             raise ProfileError(msg)
-        # Header rules keep the canonical ``HeaderName: regex`` form used
+        # Header rules keep the canonical ``headername: regex`` form used
         # internally by the matching engine (see mailplate.rules).
-        return Rule(kind="header", value=f"{name}: {value}".strip(), weight=weight)
+        return Rule(kind="header", value=f"{field}: {value}".strip(), weight=weight)
     return None
 
 

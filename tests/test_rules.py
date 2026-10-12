@@ -107,6 +107,16 @@ class TestProfileMatches:
         msg = self._make_message({"From": "alice@other.com"})
         assert profile_matches(profile, msg) is False
 
+    def test_header_rule_case_insensitive(self) -> None:
+        """A header rule matches regardless of field-name casing."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            rules=[Rule(kind="header", value="FROM: .*@example\\.com")],
+        )
+        msg = self._make_message({"fRoM": "alice@example.com"})
+        assert profile_matches(profile, msg) is True
+
     def test_header_rule_missing_header(self) -> None:
         """A header rule does not match when the header is absent."""
         profile = Profile(
@@ -219,6 +229,15 @@ class TestMatchRuleCaptures:
 
         rule = Rule(kind="header", value="From:.*@(?P<domain>[a-z.]+)")
         msg = self._make_message({"From": "a@example.com"})
+        result = _match_rule_captures(rule, msg)
+        assert result == {"domain": "example.com"}
+
+    def test_header_capture_case_insensitive(self) -> None:
+        """A capture is returned regardless of field-name casing."""
+        from mailplate.rules import _match_rule_captures
+
+        rule = Rule(kind="header", value="FROM: .*@(?P<domain>[a-z.]+)")
+        msg = self._make_message({"from": "a@example.com"})
         result = _match_rule_captures(rule, msg)
         assert result == {"domain": "example.com"}
 

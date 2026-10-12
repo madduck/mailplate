@@ -75,7 +75,7 @@ def _match_rule(rule: Rule, message: Message) -> bool:
 
     """
     if rule.kind == "header":
-        # Rule value format: "HeaderName: regex"
+        # Rule value format: "headername: regex" (field name lower-cased).
         colon_pos = rule.value.find(":")
         if colon_pos == -1:
             return False

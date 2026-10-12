@@ -113,9 +113,10 @@ MIME headers (no ``MIME-Version``, ``Content-Type``, or
     inside a profile must match for the profile to be selected (AND
     semantics). A rule can carry an optional weight by suffixing the
     field name with ``:weight``; the weight influences profile scoring
-    and defaults to 1. The field name ``body`` is reserved for the body
-    rule. The old ``header = HeaderName: regex`` form (and its weighted
-    variant) is no longer accepted.
+    and defaults to 1. Field names are matched case-insensitively. The
+    field name ``body`` is reserved for the body rule. The old
+    ``header = HeaderName: regex`` form (and its weighted variant) is no
+    longer accepted.
 
     ``From:5 = .*@company\\.com``
     :   A header rule worth 5 points instead of the default 1.

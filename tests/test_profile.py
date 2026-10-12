@@ -44,7 +44,7 @@ class TestParseRuleLine:
         result = _parse_rule_line("From = .*@example\\.com")
         assert result is not None
         assert result.kind == "header"
-        assert result.value == "From: .*@example\\.com"
+        assert result.value == "from: .*@example\\.com"
         assert result.weight == 1
 
     def test_body_rule(self) -> None:
@@ -60,8 +60,24 @@ class TestParseRuleLine:
         result = _parse_rule_line("From:5 = .*@example\\.com")
         assert result is not None
         assert result.kind == "header"
-        assert result.value == "From: .*@example\\.com"
+        assert result.value == "from: .*@example\\.com"
         assert result.weight == 5
+
+    def test_header_name_is_case_insensitive(self) -> None:
+        """The same field name in different cases yields the same rule."""
+        upper = _parse_rule_line("FROM = .*@example\\.com")
+        lower = _parse_rule_line("from = .*@example\\.com")
+        assert upper is not None
+        assert lower is not None
+        assert upper == lower
+
+    def test_body_keyword_is_case_insensitive(self) -> None:
+        """The reserved ``body`` keyword is recognised in any case."""
+        result = _parse_rule_line("BODY:3 = urgent")
+        assert result is not None
+        assert result.kind == "body"
+        assert result.value == "urgent"
+        assert result.weight == 3
 
     def test_body_rule_with_weight(self) -> None:
         """A body rule with an explicit weight is parsed."""
@@ -85,7 +101,7 @@ class TestParseRuleLine:
         result = _parse_rule_line("Subject = ")
         assert result is not None
         assert result.kind == "header"
-        assert result.value == "Subject:"
+        assert result.value == "subject:"
         assert result.weight == 1
 
 
