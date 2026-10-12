@@ -169,6 +169,76 @@ class TestPickBestProfile:
         _profile, captures = _pick_best_profile(profiles, self._MESSAGE)
         assert captures == {"flag": "yes"}
 
+    def test_zero_weight_adds_no_score(self) -> None:
+        """A zero-weight rule does not make a profile a match."""
+        profiles = [
+            Profile(
+                name="Zero",
+                path=Path("zero.mplt"),
+                rules=[Rule(kind="header", value="X-Custom: yes", weight=0)],
+            ),
+            Profile(name="Catch-all", path=Path("catchall.mplt")),
+        ]
+        profile, _captures = _pick_best_profile(profiles, self._MESSAGE)
+        assert profile is not None
+        assert profile.stem == "catchall"
+
+    def test_zero_weight_captures_are_collected(self) -> None:
+        """A zero-weight rule still contributes its named captures."""
+        profiles = [
+            Profile(
+                name="Match",
+                path=Path("match.mplt"),
+                rules=[
+                    Rule(kind="header", value="X-Custom: yes"),
+                    Rule(
+                        kind="header",
+                        value="Subject: (?P<subj>Test)",
+                        weight=0,
+                    ),
+                ],
+            )
+        ]
+        profile, captures = _pick_best_profile(profiles, self._MESSAGE)
+        assert profile is not None
+        assert profile.stem == "match"
+        assert captures == {"subj": "Test"}
+
+    def test_negative_weight_prevents_selection(self) -> None:
+        """A negative-weight rule keeps its profile from being selected."""
+        profiles = [
+            Profile(
+                name="Penalised",
+                path=Path("penalised.mplt"),
+                rules=[Rule(kind="header", value="X-Custom: yes", weight=-100)],
+            ),
+            Profile(name="Catch-all", path=Path("catchall.mplt")),
+        ]
+        profile, _captures = _pick_best_profile(profiles, self._MESSAGE)
+        assert profile is not None
+        assert profile.stem == "catchall"
+
+    def test_negative_weight_outweighs_positive_score(self) -> None:
+        """A negative rule can drag a profile below a competitor."""
+        profiles = [
+            Profile(
+                name="Penalised",
+                path=Path("penalised.mplt"),
+                rules=[
+                    Rule(kind="header", value="X-Custom: yes", weight=5),
+                    Rule(kind="body", value="Urgent", weight=-100),
+                ],
+            ),
+            Profile(
+                name="Modest",
+                path=Path("modest.mplt"),
+                rules=[Rule(kind="header", value="X-Custom: yes", weight=3)],
+            ),
+        ]
+        profile, _captures = _pick_best_profile(profiles, self._MESSAGE)
+        assert profile is not None
+        assert profile.stem == "modest"
+
 
 @pytest.fixture
 def cli_runner() -> CliRunner:

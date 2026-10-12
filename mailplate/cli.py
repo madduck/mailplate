@@ -73,9 +73,12 @@ def _pick_best_profile(
 
     Only profiles carrying rules can "match": the "best" profile is the
     one with the highest total score (sum of matching rule weights),
-    and it must score at least 1 to be selected.  If multiple profiles
-    have the same score, the first one encountered (by discovery order)
-    wins.
+    and it must score at least 1 to be selected.  A rule with weight 0
+    still contributes its captures but adds nothing to the score; a
+    rule with a negative weight subtracts points, so a sufficiently
+    negative rule can keep its profile from being selected.  If multiple
+    profiles have the same score, the first one encountered (by
+    discovery order) wins.
 
     Profiles without rules are catch-alls.  They are used only as a
     fallback when no rule-based profile produces a positive score; if
