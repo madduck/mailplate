@@ -247,6 +247,27 @@ My Company Inc.
             "My Company Inc.",
         ]
 
+    def test_signature_is_copied_verbatim(self, tmp_path: Path) -> None:
+        """Blank lines and leading whitespace in a signature are preserved."""
+        content = (
+            "[profile]\n"
+            "name = Test\n"
+            "[signature]\n"
+            "Alice\n"
+            "\n"
+            "  Indented line\n"
+            "My Company Inc.\n"
+        )
+        path = tmp_path / "test.mplt"
+        path.write_text(content, encoding="utf-8")
+        profile = load_profile(path)
+        assert profile.signature == [
+            "Alice",
+            "",
+            "  Indented line",
+            "My Company Inc.",
+        ]
+
     def test_remove_headers(self, tmp_path: Path) -> None:
         """The ``[remove_headers]`` section is parsed."""
         content = """[profile]

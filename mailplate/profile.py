@@ -99,7 +99,9 @@ class Profile:
         headers: Mapping of header names to their values.
         greeting: Lines to prepend to the body.
         closing: Lines to append before the signature.
-        signature: Lines appended at the end of the message.
+        signature: Lines appended at the end of the message. Unlike
+            the other sections, these are captured verbatim, including
+            leading whitespace and blank lines.
         defined_sections: Names of the sections that were actually
             present in the profile text (lower-cased). This
             distinguishes a section that was omitted from one that was
@@ -354,6 +356,9 @@ def _parse_profile(text: str, path: Path, *, is_include: bool = False) -> Profil
     """
     Parse profile text into a :class:`Profile`.
 
+    Lines in the ``[signature]`` section are captured verbatim: leading
+    whitespace and blank lines are preserved rather than stripped.
+
     Args:
         text: Raw text content of the profile file.
         path: Filesystem path (used for metadata, not reading).
@@ -373,10 +378,6 @@ def _parse_profile(text: str, path: Path, *, is_include: bool = False) -> Profil
     for line in text.splitlines():
         stripped = line.strip()
 
-        # Skip empty lines and comments.
-        if not stripped or stripped.startswith("#"):
-            continue
-
         # Section header.
         if match := _SECTION_PATTERN.match(stripped):
             current_section = match.group(1).lower()
@@ -386,6 +387,13 @@ def _parse_profile(text: str, path: Path, *, is_include: bool = False) -> Profil
                 )
                 raise ProfileError(msg)
             profile.defined_sections.add(current_section)
+            continue
+
+        # Skip empty lines and comments, except inside the signature
+        # section, which is copied verbatim (blank lines and all).
+        if current_section != "signature" and (
+            not stripped or stripped.startswith("#")
+        ):
             continue
 
         if current_section is None:
@@ -413,8 +421,13 @@ def _parse_profile(text: str, path: Path, *, is_include: bool = False) -> Profil
             name, _, cmd = stripped.partition("=")
             profile.helpers[name.strip()] = cmd.strip()
 
-        elif current_section in ("greeting", "closing", "signature"):
+        elif current_section in ("greeting", "closing"):
             getattr(profile, current_section).append(stripped)
+
+        elif current_section == "signature":
+            # Preserve the raw line so that leading whitespace and
+            # intentionally blank lines survive verbatim.
+            profile.signature.append(line)
 
         else:
             msg = f"Unknown section [{current_section}] in {path}"
