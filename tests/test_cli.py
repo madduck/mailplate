@@ -327,6 +327,71 @@ class TestMainCommand:
         assert "Best,\nAlice" in body
         assert "--\nalice@example.com" in body
 
+    def test_explicit_profile_collects_captures(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """An explicit profile still evaluates its rules to collect captures."""
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "test.mplt").write_text(
+            "[profile]\nname = Test\n\n"
+            "[rules]\nFrom = .*@(?P<domain>[a-z0-9.]+)\n\n"
+            "[headers]\nX-Domain = {{ rule:domain }}\n",
+            encoding="utf-8",
+        )
+        email = b"From: alice@company.com\r\n\r\nBody\r\n"
+        result = cli_runner.invoke(
+            main,
+            args=["--profile", "test", "--profile-dir", str(profile_dir)],
+            input=email,
+        )
+        assert result.exit_code == 0
+        assert b"X-Domain: company.com" in result.stdout_bytes
+
+    def test_explicit_profile_merges_captures(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Captures from every matching rule are merged for an explicit profile."""
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "test.mplt").write_text(
+            "[profile]\nname = Test\n\n"
+            "[rules]\nFrom = .*@(?P<domain>[a-z0-9.]+)\n"
+            "Subject = (?P<subject>.+)\n\n"
+            "[headers]\nX-Summary = {{ rule:domain }} {{ rule:subject }}\n",
+            encoding="utf-8",
+        )
+        email = b"From: alice@company.com\r\nSubject: Hello\r\n\r\nBody\r\n"
+        result = cli_runner.invoke(
+            main,
+            args=["--profile", "test", "--profile-dir", str(profile_dir)],
+            input=email,
+        )
+        assert result.exit_code == 0
+        assert b"X-Summary: company.com Hello" in result.stdout_bytes
+
+    def test_explicit_profile_ignores_non_matching_rule_captures(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """A rule that does not match contributes no captures."""
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "test.mplt").write_text(
+            "[profile]\nname = Test\n\n"
+            "[rules]\nFrom = .*@(?P<domain>[a-z0-9.]+)\n"
+            "Subject = (?P<subject>.+)\n\n"
+            "[headers]\nX-Summary = [{{ rule:subject }}]\n",
+            encoding="utf-8",
+        )
+        email = b"From: alice@company.com\r\n\r\nBody\r\n"
+        result = cli_runner.invoke(
+            main,
+            args=["--profile", "test", "--profile-dir", str(profile_dir)],
+            input=email,
+        )
+        assert result.exit_code == 0
+        assert b"X-Summary: []" in result.stdout_bytes
+
     def test_non_ascii_header_written_as_utf8(
         self, cli_runner: CliRunner, tmp_path: Path
     ) -> None:
