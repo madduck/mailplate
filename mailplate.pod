@@ -299,6 +299,9 @@ chained:
 
   {{ rule:pmndomain | default(rule:domain) | default("example.net") }}
 
+B<default> is the only filter provided. The template engine supports a
+small subset of template syntax and is not a Jinja2 implementation.
+
 =head1 FILES
 
 =over 4
