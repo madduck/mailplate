@@ -31,6 +31,9 @@ jobs:
       - name: Style and formatting (ruff)
         run: uv run --no-sync ruff check --show-fixes .
 
+      - name: Formatting (ruff format)
+        run: uv run --no-sync ruff format --diff .
+
       - name: Unit and integration tests (pytest)
         run: uv run --no-sync pytest
 
