@@ -83,7 +83,7 @@ A profile is organised into sections:
 name = Work
 
 [rules]
-# All rules must match (AND logic).
+# Every matching rule adds its weight to the profile's score.
 From = .*@company\.com
 body = \[internal\]
 
@@ -118,9 +118,11 @@ are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
 
 `[rules]`
 :   Auto‑detection rules. Each line is ``HeaderName = regex`` for a
-    header rule or ``body = regex`` for the message body. All rules
-    inside a profile must match for the profile to be selected (AND
-    semantics). A rule can carry an optional weight by suffixing the
+    header rule or ``body = regex`` for the message body. Each rule is
+    matched independently: every matching rule adds its weight to the
+    profile's score, while a non-matching rule adds nothing. The
+    profile with the highest total score wins, provided that score is
+    at least 1. A rule can carry an optional weight by suffixing the
     field name with ``:weight``; the weight influences profile scoring
     and defaults to 1. Field names are matched case-insensitively. The
     field name ``body`` is reserved for the body rule, and ``rcpt`` for
@@ -143,10 +145,10 @@ are written verbatim as UTF‑8; mailplate does not RFC 2047‑encode them.
     :   A rule worth -100 points. A sufficiently negative weight stops
         the profile from being selected whenever the rule matches.
 
-    The profile with the highest total score wins. Use positive weights
-    to make some rules more important than others during auto-detection,
-    a weight of 0 to collect captures without affecting the score, and a
-    negative weight to disqualify a profile when a rule matches.
+    Use positive weights to make some rules more important than others
+    during auto-detection, a weight of 0 to collect captures without
+    affecting the score, and a negative weight to disqualify a profile
+    when a rule matches.
 
     Named capture groups in a rule&#8217;s regexp become template
     variables under the ``rule:`` namespace.  For example::
