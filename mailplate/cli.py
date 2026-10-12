@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from email.message import Message
 from pathlib import Path
@@ -34,8 +35,26 @@ from .rules import _match_rule, _match_rule_captures
 
 log = logging.getLogger(__name__)
 
+
+def _xdg_config_home() -> Path:
+    """
+    Return the user's configuration directory.
+
+    Follows the XDG Base Directory Specification: ``$XDG_CONFIG_HOME``
+    when it is set to an absolute path, otherwise ``~/.config``.
+
+    Returns:
+        The base directory for user configuration.
+
+    """
+    configured = os.environ.get("XDG_CONFIG_HOME")
+    if configured and Path(configured).is_absolute():
+        return Path(configured)
+    return Path.home() / ".config"
+
+
 DEFAULT_PROFILE_DIRS = [
-    Path.home() / ".config" / "mailplate" / "profiles",
+    _xdg_config_home() / "mailplate" / "profiles",
     Path("/etc/mailplate/profiles"),
 ]
 

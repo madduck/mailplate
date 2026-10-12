@@ -12,7 +12,7 @@ def default_profile_dirs(tmp_path: Path) -> list[Path]:
     """
     Provide isolated replacements for the CLI's default profile directories.
 
-    The CLI falls back to ``~/.config/mailplate/profiles`` and
+    The CLI falls back to ``$XDG_CONFIG_HOME/mailplate/profiles`` and
     ``/etc/mailplate/profiles``. Tests must not read the host's real
     configuration, so both locations are relocated beneath the per-test
     temporary directory.

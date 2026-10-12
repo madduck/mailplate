@@ -73,10 +73,12 @@ mailplate --output draft.eml < draft.eml
 ## Profile format
 
 Profiles are flat text files with a `.mplt` extension, stored in
-`~/.config/mailplate/profiles/` or `/etc/mailplate/profiles/`
-(extra directories can be added with `--profile-dir`). Profile
-directories are scanned recursively, so profiles may also live in
-subdirectories and are treated identically wherever they are found.
+`$XDG_CONFIG_HOME/mailplate/profiles/` or `/etc/mailplate/profiles/`
+(extra directories can be added with `--profile-dir`). When
+`$XDG_CONFIG_HOME` is not set, mailplate falls back to the XDG default
+configuration directory. Profile directories are scanned recursively,
+so profiles may also live in subdirectories and are treated
+identically wherever they are found.
 Settings shared between profiles can be placed in a file named
 `INCLUDE` in any profile directory (see below).
 
@@ -284,7 +286,7 @@ implementation.
 
 ## Files
 
-`~/.config/mailplate/profiles/**/*.mplt`
+`$XDG_CONFIG_HOME/mailplate/profiles/**/*.mplt`
 :   User‑specific profiles (found recursively).
 
 `/etc/mailplate/profiles/**/*.mplt`
@@ -331,7 +333,7 @@ uv run python3 scripts/migrate_templates.py
 This reads templates from ``~/.mailplate/templates/`` and the helper
 configuration from ``~/.mailplate/config`` and writes ``.mplt`` files
 to the project’s ``profiles/`` directory. After migration, copy
-them to ``~/.config/mailplate/profiles/`` or point ``--profile-dir`` at
+them to ``$XDG_CONFIG_HOME/mailplate/profiles/`` or point ``--profile-dir`` at
 the output directory.
 
 ## License & Copyright

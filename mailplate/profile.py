@@ -3,7 +3,7 @@ Profile model and file parsing for mailplate.
 
 A profile defines how an RFC5322 email draft should be rewritten.
 Profiles are stored as flat text files in a directory (typically
-``~/.config/mailplate/profiles/``) and use an INI-like format::
+``$XDG_CONFIG_HOME/mailplate/profiles/``) and use an INI-like format::
 
     [profile]
     name = Work

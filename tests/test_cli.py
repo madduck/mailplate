@@ -323,12 +323,38 @@ def cli_runner() -> CliRunner:
     return CliRunner()
 
 
+class TestXdgConfigHome:
+    """Tests for _xdg_config_home."""
+
+    def test_env_absolute(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An absolute $XDG_CONFIG_HOME is used as-is."""
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+        assert cli._xdg_config_home() == tmp_path / "cfg"
+
+    def test_env_relative_ignored(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A relative $XDG_CONFIG_HOME is ignored."""
+        monkeypatch.setenv("XDG_CONFIG_HOME", "relative/path")
+        assert cli._xdg_config_home() == Path.home() / ".config"
+
+    def test_env_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """An unset $XDG_CONFIG_HOME falls back to ~/.config."""
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        assert cli._xdg_config_home() == Path.home() / ".config"
+
+    def test_env_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """An empty $XDG_CONFIG_HOME falls back to ~/.config."""
+        monkeypatch.setenv("XDG_CONFIG_HOME", "")
+        assert cli._xdg_config_home() == Path.home() / ".config"
+
+
 def test_default_profile_dirs_exclude_host_config(
     default_profile_dirs: list[Path],
 ) -> None:
     """Tests never search the host's real profile directories."""
     assert cli.DEFAULT_PROFILE_DIRS == default_profile_dirs
-    real_user_dir = Path.home() / ".config" / "mailplate" / "profiles"
+    real_user_dir = cli._xdg_config_home() / "mailplate" / "profiles"
     assert real_user_dir not in cli.DEFAULT_PROFILE_DIRS
     assert Path("/etc/mailplate/profiles") not in cli.DEFAULT_PROFILE_DIRS
 

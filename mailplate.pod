@@ -306,9 +306,11 @@ small subset of template syntax and is not a Jinja2 implementation.
 
 =over 4
 
-=item F<~/.config/mailplate/profiles/**/*.mplt>
+=item F<$XDG_CONFIG_HOME/mailplate/profiles/**/*.mplt>
 
-User-specific profile files (found recursively).
+User-specific profile files (found recursively). When
+C<$XDG_CONFIG_HOME> is not set, the XDG default configuration
+directory is used.
 
 =item F</etc/mailplate/profiles/**/*.mplt>
 
