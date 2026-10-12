@@ -297,7 +297,7 @@ def main(
 
     Reads the draft from stdin, transforms it according to the selected
     profile, and writes the result to stdout (or to the file specified
-    with ``--output``).
+    with --output).
     """
     level = _resolve_log_level(verbose, debug, quiet)
     if level is not None:
