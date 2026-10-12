@@ -243,7 +243,10 @@ def profile_matches(profile: Profile, message: Message) -> bool:
     """
     Check whether a profile's rules all match the given message.
 
-    All rules of the profile must match (AND semantics).
+    This helper enforces strict AND semantics: every rule must match.
+    CLI auto-detection does not use it; it instead sums the weights of
+    the matching rules and compares the totals (see
+    :func:`mailplate.cli._pick_best_profile`).
 
     Args:
         profile: The profile to evaluate.
