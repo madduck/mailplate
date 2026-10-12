@@ -120,8 +120,10 @@ The old
 .B header =
 form is no longer accepted.
 .IP
-All rules inside a profile must match for the profile to be selected
-(AND semantics).  For OR semantics create multiple profiles.
+Each rule is matched independently: every matching rule adds its weight
+to the profile's score, while a non\-matching rule adds nothing.  The
+profile with the highest total score wins, provided that score is at
+least 1.
 .IP
 Named capture groups in a rule's regexp become template variables in
 the
