@@ -5,6 +5,9 @@ on:
     tags: ["v*"]
   workflow_dispatch: # allows manual triggering
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: "Build package"
