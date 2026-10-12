@@ -273,6 +273,11 @@ closing lines.
     *fallback* (`default("there")`) is a literal string; an unquoted
     one (`default(rule:domain)`) is a variable reference.
 
+Filters are applied from left to right, so several fallbacks can be
+chained:
+
+`{{ rule:pmndomain | default(rule:domain) | default("example.net") }}`
+
 ## Files
 
 `~/.config/mailplate/profiles/**/*.mplt`
