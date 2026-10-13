@@ -1,22 +1,40 @@
 # mailplate
 
-**mailplate** is a Unix‑style filter for email drafts. It reads a draft from
-standard input, rewrites it according to a **Profile**, and writes the result to
-standard output (or to a file with `--output`).
+**mailplate** is a Unix‑style filter for email drafts. It can integrate with a
+mail user agent, such as [Mutt](http://mutt.org), to provide rule-based and
+manual **control over your email identity**, i.e. the signature to use in a
+given context, which headers to set, and how to greet your reader.
 
-It is designed to integrate with text‑based mail user agents such as Mutt.
+It reads a draft from standard input, rewrites it according to a (manually or
+automatically selected) **Profile**, and writes the result to standard output
+(or to a file with `--output`).
 
 ## Installation
 
+<!--
 ```sh
 uv tool install mailplate
 ```
 
 Or from a checkout:
+-->
+
+I am working on publishing `mailplate` on Pypi. Until that's successful, please
+run it from a checkout:
 
 ```sh
+git clone https://github.com/madduck/mailplate
+cd mailplate
 uv sync
 uv run mailplate --help
+```
+
+or install it (to `~/.local/bin` by default) as follows:
+
+```sh
+git clone https://github.com/madduck/mailplate
+cd mailplate
+uv tool install .
 ```
 
 ## Usage with Mutt & Co.
@@ -78,7 +96,7 @@ profile_keymap("F3", "club")
 and how if you press `<leader>p<F3>`, the mail draft is changed to the Profile
 you use when doing work for your club.
 
-# Usage as CLI
+## Usage as CLI
 
 ### Explicit profile
 
@@ -356,11 +374,28 @@ pod2man --section=1 --center="User Commands" --release=mailplate \
     --name=mailplate mailplate.pod | man -l -
 ```
 
+## Ancestry
+
+`mailplate` was born in the late 90s as a shell script, which I no longer have.
+In 2007, I hacked up a Python script to do much of the same, as well as some of
+the fancy other stuff, such as being able to use rule captures or command output
+in template tags. This
+[spaghetti code](https://en.wikipedia.org/wiki/Spaghetti_code) has been rotting
+[on my personal Git server](https://git.madduck.net/code/mailplate.git), while
+the desire to rewrite it properly has been expressed in my To-do list for years.
+
+Then, [Carlo](https://zottmann.dev) told me about [Pi](https://pi.dev) over
+lunch one day, and a few hours later, a new `mailplate` was born and has entered
+my daily workflow. It's my first vibe-coded project, and I welcome your
+constructive feedback and criticism. I would like to believe that this is not
+"slop" due to my experience in software engineering, and the ancestry of
+`mailplate`.
+
 ## Migration
 
-If you have existing profiles from an
-[older version of mailplate](https://git.madduck.net/code/mailplate.git), a
-migration script is provided:
+If you have existing profiles from the
+[spaghetti-coded version of mailplate](https://git.madduck.net/code/mailplate.git),
+a migration script is provided:
 
 ```sh
 uv run python3 scripts/migrate_templates.py
@@ -371,8 +406,11 @@ from `~/.mailplate/config` and writes `.mplt` files to the project’s `profiles
 directory. After migration, copy them to `$XDG_CONFIG_HOME/mailplate/profiles/`
 or point `--profile-dir` at the output directory.
 
+It does a pretty good job, but will likely fail on any rule that is more
+complext than a simple regexp.
+
 ## License & Copyright
 
 Distributed under the terms of the MIT license.
 
-© 2000–2026 martin f. krafft <mailplate@pobox.madduck.net>
+© 199x–2026 martin f. krafft <mailplate@pobox.madduck.net>
