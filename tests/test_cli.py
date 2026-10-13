@@ -454,7 +454,7 @@ class TestMainCommand:
         body_payload = parsed.get_payload(decode=True)
         assert isinstance(body_payload, bytes)
         body = body_payload.decode("utf-8")
-        assert "-- \nAlice\n\nMy Company Inc." in body
+        assert "Hello, this is the body.\n\n-- \nAlice\n\nMy Company Inc." in body
 
     def test_explicit_profile_collects_captures(
         self, cli_runner: CliRunner, tmp_path: Path

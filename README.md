@@ -242,7 +242,9 @@ variables are expanded.
 #### `[signature]`
 
 Lines appended at the end of the message. Template variables are expanded. The
-signature is separated from the closing by a `^-- $` delimiter line.
+signature is separated from the closing by a blank line followed by a `^-- $`
+delimiter line. If the body already ends with a blank line, no extra blank line
+is added.
 
 The lines of the `[signature]` section are copied verbatim: leading whitespace
 and blank lines are preserved exactly as written in the profile.

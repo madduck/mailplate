@@ -106,9 +106,10 @@ def _split_body_signature(text: str) -> tuple[str, str]:
         return text, ""
     body = text[: match.start()]
     signature = text[match.end() :]
-    # Strip trailing newline from the body side of the delimiter
-    # so we don't get a double blank line.
-    body = body.removesuffix("\n")
+    # Strip trailing newlines from the body side of the delimiter so we
+    # don't get a double blank line. The separator between the body and
+    # the delimiter is a blank line, so there may be more than one.
+    body = body.rstrip("\n")
     # Strip leading newline from the signature side.
     signature = signature.lstrip("\n")
     return body, signature
@@ -125,6 +126,7 @@ def _build_new_body(
         [greeting ...]
         [body (without signature)]
         [closing ...]
+        (blank line)
         --\u00a0 (signature delimiter)
         [profile signature ...]
 
@@ -182,10 +184,13 @@ def _build_new_body(
         parts.append(rendered_closing)
     out = "\n".join(parts)
 
-    if rendered_sig:
-        out += "\n-- \n" + rendered_sig
-    elif _draft_sig:
-        out += "\n-- \n" + _draft_sig
+    signature = rendered_sig or _draft_sig
+    if signature:
+        # Always separate the signature from the body with a blank line,
+        # but leave an existing one in place.
+        if out and not out.endswith("\n\n"):
+            out += "\n" if out.endswith("\n") else "\n\n"
+        out += "-- \n" + signature
 
     return out
 

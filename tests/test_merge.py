@@ -65,6 +65,11 @@ class TestSplitBodySignature:
         _body, sig = _split_body_signature("Body\n-- \n\n\nSig")
         assert sig == "Sig"
 
+    def test_blank_line_on_body_side(self) -> None:
+        """All trailing newlines before the delimiter are stripped."""
+        body, _sig = _split_body_signature("Body\n\n-- \nSig")
+        assert body == "Body"
+
 
 class TestStripPrefix:
     """Tests for _strip_prefix."""
@@ -161,7 +166,39 @@ class TestBuildNewBody:
         )
         msg = self._make_message({}, "Body text")
         result = _build_new_body(msg, profile)
-        assert result == "Body text\n-- \n--\nAlice"
+        assert result == "Body text\n\n-- \n--\nAlice"
+
+    def test_blank_line_added_when_body_ends_with_newline(self) -> None:
+        """A single trailing newline still gets a blank line before the
+        delimiter."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            closing=["Best,", ""],
+            signature=["Alice"],
+        )
+        msg = self._make_message({}, "Body text")
+        result = _build_new_body(msg, profile)
+        assert result == "Body text\nBest,\n\n-- \nAlice"
+
+    def test_no_extra_blank_line_when_already_present(self) -> None:
+        """No blank line is added if the body already ends with one."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            closing=["Best,", "", ""],
+            signature=["Alice"],
+        )
+        msg = self._make_message({}, "Body text")
+        result = _build_new_body(msg, profile)
+        assert result == "Body text\nBest,\n\n-- \nAlice"
+
+    def test_signature_with_empty_body(self) -> None:
+        """An empty body does not gain a leading blank line."""
+        profile = Profile(name="test", path=Path("test.mplt"), signature=["Alice"])
+        msg = self._make_message({}, "")
+        result = _build_new_body(msg, profile)
+        assert result == "-- \nAlice"
 
     def test_all_sections(self) -> None:
         """All sections are combined in order."""
@@ -177,7 +214,7 @@ class TestBuildNewBody:
             "Meeting tomorrow?",
         )
         result = _build_new_body(msg, profile)
-        assert result == "Hi Bob,\nMeeting tomorrow?\nBest,\n-- \nAlice"
+        assert result == "Hi Bob,\nMeeting tomorrow?\nBest,\n\n-- \nAlice"
 
     def test_variable_substitution(self) -> None:
         """Template variables in sections are rendered."""
@@ -227,7 +264,7 @@ class TestBuildNewBody:
             "Body\n-- \nOld sig",
         )
         result = _build_new_body(msg, profile)
-        assert result == "Body\n-- \nAlice"
+        assert result == "Body\n\n-- \nAlice"
 
     def test_draft_signature_preserved_if_profile_has_none(self) -> None:
         """When the profile has no signature section, the draft's signature
@@ -235,7 +272,7 @@ class TestBuildNewBody:
         profile = Profile(name="test", path=Path("test.mplt"))
         msg = self._make_message({}, "Body\n-- \nDraft sig")
         result = _build_new_body(msg, profile)
-        assert result == "Body\n-- \nDraft sig"
+        assert result == "Body\n\n-- \nDraft sig"
 
     def test_idempotent_full_roundtrip(self) -> None:
         """A second application of the same profile yields the same result."""
