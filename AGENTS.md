@@ -103,13 +103,12 @@ git checkout -b feature/<short-name>
 
 Never commit to `main`.
 
-**One commit per file change** unless edits are so tightly coupled that
-splitting them would break the build.
+Always bundle commits which update the tests, change the code, and reflect the
+new behaviour in all documentation, docstrings, and comments. Do not split a
+change's tests, code, or documentation across separate commits.
 
 Scope-prefixed messages (e.g. `cli:`, `docs:`, `profile:`) commit messages
 please, not Conventional Commits.
-
-Update documentation (README, man page, comments) when behaviour changes.
 
 While a feature branch has not been merged into `main`, related follow-up
 work (bugfixes, tweaks) should be appended to the appropriate feature
