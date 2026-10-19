@@ -38,6 +38,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked
 
+      - name: Lock file check (uv-lock)
+        run: uv run --no-sync pre-commit run uv-lock --all-files
+
+      - name: Markdown lint (markdownlint)
+        run: uv run --no-sync pre-commit run markdownlint --all-files
+
       - name: Style and formatting (ruff)
         run: uv run --no-sync ruff check --show-fixes .
 
