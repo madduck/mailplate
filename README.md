@@ -37,6 +37,11 @@ cd mailplate
 uv tool install .
 ```
 
+## Examples
+
+In [Examples.md](https://github.com/madduck/mailplate), you may find a couple of
+examples for your use and idea generation.
+
 ## Usage with Mutt & Neomutt
 
 While `mailplate` may be useful as a CLI by itself (see "Usage as CLI" below),
@@ -405,17 +410,13 @@ Filters are applied from left to right, so several fallbacks can be chained:
 `default` is the only filter mailplate provides. The template engine supports a
 small subset of template syntax and is not a Jinja2 implementation.
 
-## Examples
-
-In [Examples.md](https://github.com/madduck/mailplate), you may find a couple of
-examples for your use and idea generation.
-
 ## Files
 
 - `$XDG_CONFIG_HOME/mailplate/profiles/**/*.mplt` — user‑specific profiles
   (found recursively).
 - `/etc/mailplate/profiles/**/*.mplt` — system‑wide profiles (found
   recursively).
+- [Examples](https://github.com/madduck/mailplate) — some ideas for you.
 
 ## Man page
 
