@@ -19,8 +19,9 @@ uv tool install mailplate
 Or from a checkout:
 -->
 
-I am working on publishing `mailplate` on Pypi. Until that's successful, please
-run it from a checkout:
+I am
+[working on publishing `mailplate` on Pypi](https://github.com/pypi/support/issues/12757).
+Until that's successful, please run it from a checkout:
 
 ```sh
 git clone https://github.com/madduck/mailplate
