@@ -199,11 +199,34 @@ My Company Inc.
 
 mailplate only handles **plain‑text** drafts — messages that contain anything
 other than `text/plain` (e.g. HTML parts, attachments) are rejected with an
-error. The output is a bare RFC 5322 message without MIME headers (no
+error. The output is a bare RFC 5322 message without MIME headers (no
 `MIME-Version`, `Content-Type`, or `Content-Transfer-Encoding`). Non‑ASCII
 characters in header bodies are written verbatim as UTF‑8; mailplate does not
-RFC 2047‑encode them, as the output is expected to be further processed by a
+RFC 2047‑encode them, as the output is expected to be further processed by a
 MUA, such as Mutt.
+
+### Header order
+
+The output always starts with these headers, in this order:
+
+```text
+From:
+To:
+Cc:
+Bcc:
+Reply-To:
+Subject:
+Message-ID:
+```
+
+Any of them that is set neither by the input nor by the profile is still
+written, with an empty value (note the space after the colon: `Cc: `). This
+keeps the line numbers of a draft stable, which is what editors rely on when
+they place the cursor or apply `mailplate` from within a `:%!` filter.
+
+All other headers follow in the order of the input, with headers added by the
+profile at the end. Removing one of the seven headers above with
+`[remove_headers]` drops its value, but the header is still written empty.
 
 ### Sections
 
@@ -255,7 +278,8 @@ when a profile is selected explicitly with `--profile`.
 
 Header definitions. Each line is `Header‑Name = value`. Existing headers with
 the same name (case‑insensitive) are replaced. Template placeholders (see below)
-are expanded.
+are expanded. The seven headers listed under “Header order” above always take
+their canonical position and spelling, whatever spelling the profile uses.
 
 Header values can reference other headers via `{{ header:<Name> }}` and the
 `{{ subject }}`, `{{ from }}`, etc. shorthand variables.

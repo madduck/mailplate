@@ -35,6 +35,19 @@ _MIME_HEADERS = {"mime-version", "content-type", "content-transfer-encoding"}
 #: in an email draft (RFC 3676 flavour).
 _SIGNATURE_RE = re.compile(r"^-- $", re.MULTILINE)
 
+#: Headers that always lead the output, in this order. Any of them that
+#: is absent from both the input and the profile is emitted with an
+#: empty value, so that the draft always has these fields to fill in.
+_PRIORITY_HEADERS = (
+    "From",
+    "To",
+    "Cc",
+    "Bcc",
+    "Reply-To",
+    "Subject",
+    "Message-ID",
+)
+
 
 class NotPlainTextError(ValueError):
     """Raised when the input message is not a plain-text RFC5322 email."""
@@ -261,14 +274,24 @@ def _apply_headers(
     captures: dict[str, str],
 ) -> None:
     """
-    Apply profile headers to *message* in-place, preserving input order.
+    Apply profile headers to *message* in-place, in canonical order.
 
-    Existing headers keep their original position even when the profile
-    overrides their value. If the input repeats a header that the
-    profile overrides, the duplicates are collapsed into a single value
-    at the position of the first occurrence. Headers that are not
-    present in the input are appended in profile order. Headers listed
-    in ``profile.remove_headers`` are dropped.
+    The output always starts with the headers named in
+    :data:`_PRIORITY_HEADERS` (From, To, Cc, Bcc, Reply-To, Subject,
+    Message-ID), in that order. Each of them holds the value supplied by
+    the profile or, failing that, the value from the input; when neither
+    provides one, the header is emitted with an empty value, so that it
+    reads ``From: `` in the output. This keeps the layout of a draft
+    stable, which matters for editors that place the cursor by line
+    number.
+
+    All remaining headers follow, in input order, with headers added by
+    the profile appended in profile order. If the input repeats a
+    header, only its first value survives and it keeps its position,
+    except for the priority headers, which are always ordered as
+    listed above. Headers listed in ``profile.remove_headers`` are
+    dropped, including priority headers; the latter are then emitted
+    empty.
 
     Header values are rendered through the template engine so that
     placeholders like ``{{ subject }}``, ``{{ header:X-Custom }}``, or
@@ -295,27 +318,59 @@ def _apply_headers(
         )
 
     removed = {name.lower() for name in profile.remove_headers}
+    # Canonical spelling of the priority headers, keyed by lower-case name.
+    priority = {name.lower(): name for name in _PRIORITY_HEADERS}
 
-    # Walk the original headers in order, substituting overrides in place
-    # and dropping duplicates of an overridden header.
-    ordered: list[tuple[str, str]] = []
-    replaced: set[str] = set()
+    # First occurrence wins for repeated headers, so later duplicates do
+    # not shift or override anything. The original spelling is kept so
+    # that non-priority headers keep the case the input gave them.
+    first_values: dict[str, tuple[str, str]] = {}
     for name, value in original.raw_items():
         lower = name.lower()
+        if lower not in first_values:
+            first_values[lower] = (name, value)
+
+    def value_for(lower: str) -> tuple[str, str]:
+        """Return the (name, value) pair for a lower-cased header name."""
+        if lower in rendered:
+            return rendered[lower]
+        if lower in first_values:
+            return first_values[lower]
+        return lower, ""
+
+    # The priority headers lead the output in canonical order, using the
+    # canonical spelling. A profile header spelled differently from the
+    # canonical name still supplies the value of the priority slot.
+    ordered: list[tuple[str, str]] = []
+    for name in _PRIORITY_HEADERS:
+        lower = name.lower()
+        if lower in removed:
+            # The header is still emitted, so that the draft keeps its
+            # layout, but the profile cannot fill it in either.
+            ordered.append((name, ""))
+            continue
+        _spelling, value = value_for(lower)
+        ordered.append((name, value))
+
+    # Everything else follows in input order, with duplicates dropped and
+    # profile overrides substituted in place.
+    placed: set[str] = set(priority)
+    for name, value in original.raw_items():
+        lower = name.lower()
+        if lower in placed:
+            continue
+        placed.add(lower)
         if lower in removed:
             continue
-        if lower in rendered:
-            if lower in replaced:
-                continue
-            name, value = rendered[lower]
-            replaced.add(lower)
-        ordered.append((name, value))
+        ordered.append(value_for(lower))
 
     # Append profile headers that were absent from the input, in the
     # order in which they appear in the profile.
     for lower, (name, value) in rendered.items():
-        if lower not in replaced:
-            ordered.append((name, value))
+        if lower in placed or lower in removed:
+            continue
+        placed.add(lower)
+        ordered.append((name, value))
 
     # The public API cannot reorder existing headers, so rebuild the
     # header list: clear every header, then re-insert in the desired

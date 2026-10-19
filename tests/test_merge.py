@@ -433,15 +433,15 @@ class TestMergeProfile:
         assert "X-Old" not in result
         assert "X-Obsolete" not in result
 
-    def test_header_order_preserved(self) -> None:
-        """Overriding and adding headers keeps the input header order."""
+    def test_priority_headers_lead_in_canonical_order(self) -> None:
+        """Priority headers always lead the output in canonical order."""
         msg = self._make_message(
             {
                 "Return-Path": "<alice@example.com>",
                 "Subject": "Old",
                 "From": "Alice <alice@example.com>",
-                "To": "Bob <bob@example.com>",
                 "Date": "Thu, 01 Jan 2026 00:00:00 +0000",
+                "To": "Bob <bob@example.com>",
             }
         )
         profile = Profile(
@@ -450,20 +450,92 @@ class TestMergeProfile:
             headers={"Subject": "New", "X-Mailer": "mailplate/1.0"},
         )
         result = merge_profile(msg, profile)
+        # Missing priority headers are emitted empty; the rest keeps the
+        # input order, and profile headers not in the input come last.
         assert list(result.keys()) == [
-            "Return-Path",
-            "Subject",
             "From",
             "To",
+            "Cc",
+            "Bcc",
+            "Reply-To",
+            "Subject",
+            "Message-ID",
+            "Return-Path",
             "Date",
             "X-Mailer",
         ]
+        assert result["Subject"] == "New"
+        assert result["Cc"] == ""
+
+    def test_serialised_priority_headers_have_trailing_space(self) -> None:
+        """Empty priority headers serialise with a space after the colon."""
+        msg = self._make_message({"Subject": "T"})
+        profile = Profile(name="test", path=Path("test.mplt"))
+        out = serialize_email(merge_profile(msg, profile))
+        assert out.startswith(
+            b"From: \nTo: \nCc: \nBcc: \nReply-To: \nSubject: T\nMessage-ID: \n\n"
+        )
+
+    def test_input_priority_headers_reordered(self) -> None:
+        """Priority headers present in the input are put in canonical order."""
+        msg = self._make_message(
+            {
+                "Message-ID": "<1@example.com>",
+                "Bcc": "hidden@example.com",
+                "To": "Bob",
+                "From": "Alice",
+            }
+        )
+        profile = Profile(name="test", path=Path("test.mplt"))
+        result = merge_profile(msg, profile)
+        assert list(result.keys()) == [
+            "From",
+            "To",
+            "Cc",
+            "Bcc",
+            "Reply-To",
+            "Subject",
+            "Message-ID",
+        ]
+
+    def test_profile_priority_header_overrides_input(self) -> None:
+        """A priority header set by the profile wins over the input."""
+        msg = self._make_message({"From": "Alice", "Reply-To": "old@example.com"})
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            headers={"Reply-To": "new@example.com", "cc": "carol@example.com"},
+        )
+        result = merge_profile(msg, profile)
+        assert result["Reply-To"] == "new@example.com"
+        # A profile header spelled in lower case keeps the canonical
+        # spelling of the priority slot.
+        assert result.get_all("Cc") == ["carol@example.com"]
+        assert list(result.keys())[:3] == ["From", "To", "Cc"]
+
+    def test_removed_priority_header_is_emitted_empty(self) -> None:
+        """A removed priority header is still present, but empty."""
+        msg = self._make_message({"From": "Alice", "Cc": "carol@example.com"})
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            remove_headers=["Cc"],
+        )
+        result = merge_profile(msg, profile)
+        assert result["Cc"] == ""
+        assert list(result.keys()) == [
+            "From",
+            "To",
+            "Cc",
+            "Bcc",
+            "Reply-To",
+            "Subject",
+            "Message-ID",
+        ]
 
     def test_override_keeps_original_case_and_position(self) -> None:
-        """An overridden header stays where the input put it."""
-        msg = self._make_message(
-            {"From": "Alice <alice@example.com>", "subject": "Old", "To": "Bob"}
-        )
+        """An overridden non-priority header stays where the input put it."""
+        msg = self._make_message({"X-First": "1", "subject": "Old", "X-Last": "2"})
         profile = Profile(
             name="test",
             path=Path("test.mplt"),
@@ -471,11 +543,12 @@ class TestMergeProfile:
         )
         result = merge_profile(msg, profile)
         assert result["Subject"] == "New"
-        assert list(result.keys()) == ["From", "Subject", "To"]
+        assert list(result.keys())[-2:] == ["X-First", "X-Last"]
+        assert "Subject" in list(result.keys())[:7]
 
     def test_duplicate_header_collapsed_at_first_position(self) -> None:
         """Duplicate overridden headers collapse at the first occurrence."""
-        msg = self._make_message({"From": "Alice", "X-Tag": "first", "To": "Bob"})
+        msg = self._make_message({"X-First": "1", "X-Tag": "first", "X-Last": "2"})
         msg.add_header("X-Tag", "second")
         profile = Profile(
             name="test",
@@ -484,7 +557,16 @@ class TestMergeProfile:
         )
         result = merge_profile(msg, profile)
         assert result.get_all("X-Tag") == ["only"]
-        assert list(result.keys()) == ["From", "X-Tag", "To"]
+        assert list(result.keys())[-3:] == ["X-First", "X-Tag", "X-Last"]
+
+    def test_duplicate_input_header_keeps_first_value(self) -> None:
+        """A repeated input header keeps its first value and position."""
+        msg = self._make_message({"X-First": "1"})
+        msg.add_header("X-Tag", "first")
+        msg.add_header("X-Tag", "second")
+        profile = Profile(name="test", path=Path("test.mplt"))
+        result = merge_profile(msg, profile)
+        assert result.get_all("X-Tag") == ["first"]
 
     def test_removal_preserves_order_of_remaining_headers(self) -> None:
         """Removing a header does not reorder the remaining ones."""
@@ -495,7 +577,7 @@ class TestMergeProfile:
             remove_headers=["X-Old"],
         )
         result = merge_profile(msg, profile)
-        assert list(result.keys()) == ["A", "B", "C"]
+        assert list(result.keys())[7:] == ["A", "B", "C"]
 
     def test_header_added_when_absent_appended(self) -> None:
         """A profile header not in the input is appended at the end."""
@@ -506,7 +588,7 @@ class TestMergeProfile:
             headers={"X-One": "1", "X-Two": "2"},
         )
         result = merge_profile(msg, profile)
-        assert list(result.keys()) == ["From", "To", "X-One", "X-Two"]
+        assert list(result.keys())[-2:] == ["X-One", "X-Two"]
 
     def test_header_value_template(self) -> None:
         """Header values are rendered through the template engine."""

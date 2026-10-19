@@ -33,6 +33,20 @@ is rejected with an error. The output is a bare RFC 5322 message
 without MIME headers. Non-ASCII characters in header bodies are
 written verbatim as UTF-8; B<mailplate> does not RFC 2047-encode them.
 
+=head1 HEADER ORDER
+
+The output always starts with the headers B<From>, B<To>, B<Cc>, B<Bcc>,
+B<Reply-To>, B<Subject>, and B<Message-ID>, in that order. Each of them
+holds the value set by the profile, or else the value from the input.
+A header that neither provides is written with an empty value, that is,
+with a single space after the colon (C<Cc: >). The remaining headers
+follow in input order, with headers added by the profile at the end.
+
+This keeps the line numbers of a draft stable, which matters to editors
+that place the cursor or apply B<mailplate> from within a C<:%!> filter.
+A header named in C<[remove_headers]> still keeps its position, but is
+written empty.
+
 =head1 OPTIONS
 
 =over 4

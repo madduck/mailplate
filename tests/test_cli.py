@@ -554,25 +554,29 @@ class TestMainCommand:
             pytest.param(
                 "",
                 "[signature]\nAlice\n",
-                b"Subject: T\nFrom: a@b\n\n\n\n-- \nAlice\n",
+                b"From: a@b\nTo: \nCc: \nBcc: \nReply-To: \n"
+                b"Subject: T\nMessage-ID: \n\n\n\n-- \nAlice\n",
                 id="no-body-with-signature",
             ),
             pytest.param(
                 "",
                 "",
-                b"Subject: T\nFrom: a@b\n\n\n",
+                b"From: a@b\nTo: \nCc: \nBcc: \nReply-To: \n"
+                b"Subject: T\nMessage-ID: \n\n\n",
                 id="no-body-without-signature",
             ),
             pytest.param(
                 "Hello\n",
                 "[signature]\nAlice\n",
-                b"Subject: T\nFrom: a@b\n\nHello\n\n-- \nAlice\n",
+                b"From: a@b\nTo: \nCc: \nBcc: \nReply-To: \n"
+                b"Subject: T\nMessage-ID: \n\nHello\n\n-- \nAlice\n",
                 id="body-with-signature",
             ),
             pytest.param(
                 "Hello\n",
                 "",
-                b"Subject: T\nFrom: a@b\n\nHello\n",
+                b"From: a@b\nTo: \nCc: \nBcc: \nReply-To: \n"
+                b"Subject: T\nMessage-ID: \n\nHello\n",
                 id="body-without-signature",
             ),
         ],
