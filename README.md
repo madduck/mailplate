@@ -260,9 +260,16 @@ variables are expanded.
 #### `[signature]`
 
 Lines appended at the end of the message. Template variables are expanded. The
-signature is separated from the closing by a blank line followed by a `^-- $`
+signature is separated from the body by a blank line followed by a `^-- $`
 delimiter line. If the body already ends with a blank line, no extra blank line
 is added.
+
+The message body always keeps at least one line, so that it is framed by a blank
+line above and below. An empty draft gains a blank line before the signature:
+the output is then `{headers}`, a blank line, a blank line, `-- `, and the
+signature. The last line of the output always ends with a newline, so the draft
+is ready for more typing. A draft with no body and no signature is left without
+a body.
 
 The lines of the `[signature]` section are copied verbatim: leading whitespace
 and blank lines are preserved exactly as written in the profile.

@@ -173,14 +173,17 @@ Template variables are expanded.
 
 =item B<[signature]>
 
-Lines appended at the end of the message, separated from the closing
-by a blank line followed by a C<-- > delimiter line. If the body
-already ends with a blank line, no extra blank line is added.
-Template variables are expanded. Signature lines are copied verbatim:
-leading whitespace and blank lines are preserved exactly as written.
-If the original draft already contains a signature (text following a
-C<-- > line), it is replaced by this section; if no B<[signature]>
-section is defined, the original signature is preserved unchanged.
+Lines appended at the end of the message, separated from the body by a
+blank line followed by a C<-- > delimiter line. If the body already
+ends with a blank line, no extra blank line is added. The body always
+keeps at least one line, so it is framed by a blank line above and
+below; an empty draft gains a blank line before the signature. The
+last line of the output always ends with a newline. Template variables
+are expanded. Signature lines are copied verbatim: leading whitespace
+and blank lines are preserved exactly as written. If the original
+draft already contains a signature (text following a C<-- > line), it
+is replaced by this section; if no B<[signature]> section is defined,
+the original signature is preserved unchanged.
 
 =item B<[remove_headers]>
 

@@ -456,6 +456,58 @@ class TestMainCommand:
         body = body_payload.decode("utf-8")
         assert "Hello, this is the body.\n\n-- \nAlice\n\nMy Company Inc." in body
 
+    @pytest.mark.parametrize(
+        ("body", "signature", "expected"),
+        [
+            pytest.param(
+                "",
+                "[signature]\nAlice\n",
+                b"Subject: T\nFrom: a@b\n\n\n\n-- \nAlice\n",
+                id="no-body-with-signature",
+            ),
+            pytest.param(
+                "",
+                "",
+                b"Subject: T\nFrom: a@b\n\n",
+                id="no-body-without-signature",
+            ),
+            pytest.param(
+                "Hello\n",
+                "[signature]\nAlice\n",
+                b"Subject: T\nFrom: a@b\n\nHello\n\n-- \nAlice\n",
+                id="body-with-signature",
+            ),
+            pytest.param(
+                "Hello\n",
+                "",
+                b"Subject: T\nFrom: a@b\n\nHello\n",
+                id="body-without-signature",
+            ),
+        ],
+    )
+    def test_body_layout(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        body: str,
+        signature: str,
+        expected: bytes,
+    ) -> None:
+        """The body is framed by blank lines and ends with a newline."""
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "test.mplt").write_text(
+            f"[profile]\nname = Test\n{signature}",
+            encoding="utf-8",
+        )
+        result = cli_runner.invoke(
+            main,
+            args=["--profile", "test", "--profile-dir", str(profile_dir)],
+            input=("Subject: T\nFrom: a@b\n\n" + body).encode(),
+        )
+        assert result.exit_code == 0
+        assert result.stdout_bytes == expected
+
     def test_explicit_profile_collects_captures(
         self, cli_runner: CliRunner, tmp_path: Path
     ) -> None:

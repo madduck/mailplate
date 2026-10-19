@@ -135,6 +135,9 @@ def _build_new_body(
     discarded and replaced by the profile's ``[signature]`` section (if
     any).
 
+    The result ends with a newline whenever it is not empty, so that the
+    serialised message is ready for the next line of typing.
+
     Args:
         message: The original parsed email.
         profile: The profile to apply.
@@ -186,11 +189,19 @@ def _build_new_body(
 
     signature = rendered_sig or _draft_sig
     if signature:
-        # Always separate the signature from the body with a blank line,
-        # but leave an existing one in place.
-        if out and not out.endswith("\n\n"):
+        # The body must survive as at least one line, so that it has a
+        # blank line on either side. An empty body becomes one blank
+        # line below the header separator; anything else already ends
+        # with a blank line or must gain one.
+        if not out:
+            out = "\n\n"
+        elif not out.endswith("\n\n"):
             out += "\n" if out.endswith("\n") else "\n\n"
         out += "-- \n" + signature
+
+    # Terminate the last line so the output is ready for more typing.
+    if out:
+        out += "\n"
 
     return out
 

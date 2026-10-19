@@ -141,14 +141,14 @@ class TestBuildNewBody:
         profile = Profile(name="test", path=Path("test.mplt"))
         msg = self._make_message({}, "Hello")
         result = _build_new_body(msg, profile)
-        assert result == "Hello"
+        assert result == "Hello\n"
 
     def test_with_greeting(self) -> None:
         """Greeting is prepended to the body."""
         profile = Profile(name="test", path=Path("test.mplt"), greeting=["Hi there,"])
         msg = self._make_message({}, "Body text")
         result = _build_new_body(msg, profile)
-        assert result == "Hi there,\nBody text"
+        assert result == "Hi there,\nBody text\n"
 
     def test_with_closing(self) -> None:
         """Closing is appended after the body."""
@@ -157,7 +157,7 @@ class TestBuildNewBody:
         )
         msg = self._make_message({}, "Body text")
         result = _build_new_body(msg, profile)
-        assert result == "Body text\nBest,\nAlice"
+        assert result == "Body text\nBest,\nAlice\n"
 
     def test_with_signature(self) -> None:
         """Signature is appended after the delimiter."""
@@ -166,7 +166,7 @@ class TestBuildNewBody:
         )
         msg = self._make_message({}, "Body text")
         result = _build_new_body(msg, profile)
-        assert result == "Body text\n\n-- \n--\nAlice"
+        assert result == "Body text\n\n-- \n--\nAlice\n"
 
     def test_blank_line_added_when_body_ends_with_newline(self) -> None:
         """A single trailing newline still gets a blank line before the
@@ -179,7 +179,7 @@ class TestBuildNewBody:
         )
         msg = self._make_message({}, "Body text")
         result = _build_new_body(msg, profile)
-        assert result == "Body text\nBest,\n\n-- \nAlice"
+        assert result == "Body text\nBest,\n\n-- \nAlice\n"
 
     def test_no_extra_blank_line_when_already_present(self) -> None:
         """No blank line is added if the body already ends with one."""
@@ -191,14 +191,21 @@ class TestBuildNewBody:
         )
         msg = self._make_message({}, "Body text")
         result = _build_new_body(msg, profile)
-        assert result == "Body text\nBest,\n\n-- \nAlice"
+        assert result == "Body text\nBest,\n\n-- \nAlice\n"
 
     def test_signature_with_empty_body(self) -> None:
-        """An empty body does not gain a leading blank line."""
+        """An empty body becomes one blank line above the delimiter."""
         profile = Profile(name="test", path=Path("test.mplt"), signature=["Alice"])
         msg = self._make_message({}, "")
         result = _build_new_body(msg, profile)
-        assert result == "-- \nAlice"
+        assert result == "\n\n-- \nAlice\n"
+
+    def test_empty_body_without_signature(self) -> None:
+        """An empty body without a signature stays empty."""
+        profile = Profile(name="test", path=Path("test.mplt"))
+        msg = self._make_message({}, "")
+        result = _build_new_body(msg, profile)
+        assert result == ""
 
     def test_all_sections(self) -> None:
         """All sections are combined in order."""
@@ -214,7 +221,7 @@ class TestBuildNewBody:
             "Meeting tomorrow?",
         )
         result = _build_new_body(msg, profile)
-        assert result == "Hi Bob,\nMeeting tomorrow?\nBest,\n\n-- \nAlice"
+        assert result == "Hi Bob,\nMeeting tomorrow?\nBest,\n\n-- \nAlice\n"
 
     def test_variable_substitution(self) -> None:
         """Template variables in sections are rendered."""
@@ -225,7 +232,7 @@ class TestBuildNewBody:
         )
         msg = self._make_message({"To": "Bob <bob@e.com>"}, "Hello")
         result = _build_new_body(msg, profile)
-        assert result == "Hi Bob,\nHello"
+        assert result == "Hi Bob,\nHello\n"
 
     def test_idempotent_greeting(self) -> None:
         """Greeting is not added again if the body already starts with it."""
@@ -236,7 +243,7 @@ class TestBuildNewBody:
         )
         msg = self._make_message({"To": "Bob <bob@e.com>"}, "Hi Bob,\nAlready greeted")
         result = _build_new_body(msg, profile)
-        assert result == "Hi Bob,\nAlready greeted"
+        assert result == "Hi Bob,\nAlready greeted\n"
 
     def test_idempotent_closing(self) -> None:
         """Closing is not added again if the body already ends with it."""
@@ -250,7 +257,7 @@ class TestBuildNewBody:
             "Some text\nBest,",
         )
         result = _build_new_body(msg, profile)
-        assert result == "Some text\nBest,"
+        assert result == "Some text\nBest,\n"
 
     def test_idempotent_signature(self) -> None:
         """Signature is always replaced by the profile's, never duplicated."""
@@ -264,7 +271,7 @@ class TestBuildNewBody:
             "Body\n-- \nOld sig",
         )
         result = _build_new_body(msg, profile)
-        assert result == "Body\n\n-- \nAlice"
+        assert result == "Body\n\n-- \nAlice\n"
 
     def test_draft_signature_preserved_if_profile_has_none(self) -> None:
         """When the profile has no signature section, the draft's signature
@@ -272,7 +279,7 @@ class TestBuildNewBody:
         profile = Profile(name="test", path=Path("test.mplt"))
         msg = self._make_message({}, "Body\n-- \nDraft sig")
         result = _build_new_body(msg, profile)
-        assert result == "Body\n\n-- \nDraft sig"
+        assert result == "Body\n\n-- \nDraft sig\n"
 
     def test_idempotent_full_roundtrip(self) -> None:
         """A second application of the same profile yields the same result."""
