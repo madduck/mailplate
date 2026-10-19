@@ -361,8 +361,12 @@ def merge_profile(
 
     # 2. Build the new body and set it as UTF-8 bytes so that the body
     #    round-trips unchanged regardless of the message's declared
-    #    charset.
+    #    charset. An empty body with no headers still needs one payload
+    #    byte so the serialiser emits the blank line after the headers;
+    #    with headers its own separator already provides that line.
     new_body = _build_new_body(result, profile, captures)
+    if not new_body and not list(result.keys()):
+        new_body = "\n"
     result.set_payload(new_body.encode("utf-8"))
 
     # 3. Strip MIME headers so the output is a plain RFC5322 message.

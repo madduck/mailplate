@@ -268,8 +268,8 @@ The message body always keeps at least one line, so that it is framed by a blank
 line above and below. An empty draft gains a blank line before the signature:
 the output is then `{headers}`, a blank line, a blank line, `-- `, and the
 signature. The last line of the output always ends with a newline, so the draft
-is ready for more typing. A draft with no body and no signature is left without
-a body.
+is ready for more typing. A draft with no body and no signature keeps the blank
+line after the headers but has no body content.
 
 The lines of the `[signature]` section are copied verbatim: leading whitespace
 and blank lines are preserved exactly as written in the profile.

@@ -383,6 +383,13 @@ class TestMergeProfile:
         with pytest.raises(NotPlainTextError):
             merge_profile(msg, profile)
 
+    def test_headerless_empty_message_keeps_blank_line(self) -> None:
+        """A message with no headers or body still ends with a blank line."""
+        msg = self._make_message()
+        profile = Profile(name="test", path=Path("test.mplt"))
+        result = serialize_email(merge_profile(msg, profile))
+        assert result == b"\n\n"
+
     def test_headers_are_set(self) -> None:
         """Profile headers are added to the message."""
         msg = self._make_message({"Subject": "Test"})
