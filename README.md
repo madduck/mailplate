@@ -39,8 +39,8 @@ uv tool install .
 
 ## Examples
 
-In [Examples.md](https://github.com/madduck/mailplate), you may find a couple of
-examples for your use and idea generation.
+In [Examples.md](https://github.com/madduck/mailplate/blob/main/Examples.md),
+you may find a couple of examples for your use and idea generation.
 
 ## Usage with Mutt & Neomutt
 
@@ -416,7 +416,8 @@ small subset of template syntax and is not a Jinja2 implementation.
   (found recursively).
 - `/etc/mailplate/profiles/**/*.mplt` — system‑wide profiles (found
   recursively).
-- [Examples](https://github.com/madduck/mailplate) — some ideas for you.
+- [Examples](https://github.com/madduck/mailplate/blob/main/Examples.md) — some
+  ideas for you.
 
 ## Man page
 
