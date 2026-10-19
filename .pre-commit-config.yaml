@@ -1,4 +1,9 @@
 repos:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.13.1
+    hooks:
+      - id: uv-lock
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.0
     hooks:
@@ -22,4 +27,3 @@ repos:
         args: [-c, pyproject.toml, -r, .]
 
 fail_fast: true
-
