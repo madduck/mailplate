@@ -15,6 +15,13 @@ B<mailplate> is a Unix-style filter for email drafts. It reads a
 draft from standard input, rewrites it according to a profile, and
 writes the result to standard output.
 
+An empty standard input is not an error. It stands for a message that
+is to be created from scratch: B<mailplate> then starts from a minimal
+RFC 5322 message with a single C<Content-Type: text/plain> header and
+applies the profile to it. This is useful to produce a ready-to-type
+draft from a profile alone. If no profile is selected in that case,
+the minimal message is written unchanged.
+
 The profile controls which headers are added or overridden, how the
 body is restructured (greeting, closing, signature blocks), and all
 sections can contain template placeholders that are filled with data
@@ -362,8 +369,8 @@ Successful completion.
 
 =item Z<>1
 
-An error occurred (profile not found, no input data, stdin empty,
-etc.).
+An error occurred (profile not found, unreadable input, etc.). An
+empty standard input is not an error.
 
 =back
 

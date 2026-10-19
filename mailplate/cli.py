@@ -84,6 +84,23 @@ def _resolve_profile_dirs(extra: tuple[Path, ...] | None) -> list[Path]:
     return dirs
 
 
+def _default_draft() -> Message:
+    """
+    Build the draft used when stdin is empty.
+
+    The draft carries a single ``Content-Type: text/plain`` header, so
+    that the result is a valid plain-text RFC5322 message (a message
+    without any headers is not) that later merge steps can operate on.
+
+    Returns:
+        An empty plain-text message with a ``Content-Type`` header.
+
+    """
+    message = Message()
+    message["Content-Type"] = "text/plain"
+    return message
+
+
 def _resolve_log_level(verbose: int, debug: bool, quiet: bool) -> int | None:
     """
     Resolve the logging level from the command-line flags.
@@ -316,7 +333,8 @@ def main(
 
     Reads the draft from stdin, transforms it according to the selected
     profile, and writes the result to stdout (or to the file specified
-    with --output).
+    with --output). An empty stdin is not an error: the profile is then
+    applied to a minimal message created from scratch.
     """
     level = _resolve_log_level(verbose, debug, quiet)
     if level is not None:
@@ -338,14 +356,15 @@ def main(
             click.echo(f"{prof.stem:20s}  {prof.name}")
         sys.exit(0)
 
-    # Read the email draft from stdin.
+    # Read the email draft from stdin. An empty stdin is not an error:
+    # it stands for a message that is to be created from scratch.
     raw_data = sys.stdin.buffer.read()
-    if not raw_data:
-        click.echo("Error: no input data (stdin is empty).", err=True)
-        sys.exit(1)
-    log.debug("read %d byte(s) from stdin", len(raw_data))
-
-    message = parse_email(raw_data)
+    if raw_data:
+        log.debug("read %d byte(s) from stdin", len(raw_data))
+        message = parse_email(raw_data)
+    else:
+        log.debug("stdin is empty; starting from a minimal draft")
+        message = _default_draft()
 
     # Determine which profile to apply.
     if profile_name:
@@ -364,15 +383,15 @@ def main(
 
     if profile is None:
         # No profile matched (auto-detect) or none was specified;
-        # pass the input through verbatim.
-        log.debug(
-            "no profile selected — passing input through unchanged"
-        )  # pragma: no cover
-        if output:  # pragma: no cover
-            output.write_bytes(raw_data)  # pragma: no cover
-        else:  # pragma: no cover
-            sys.stdout.buffer.write(raw_data)  # pragma: no cover
-        return  # pragma: no cover
+        # pass the input through verbatim. There is nothing to pass on
+        # when stdin was empty, so the minimal draft is written instead.
+        log.debug("no profile selected — passing input through unchanged")
+        passthrough = raw_data or serialize_email(message)
+        if output:
+            output.write_bytes(passthrough)
+        else:
+            sys.stdout.buffer.write(passthrough)
+        return
 
     # Apply the profile.
     log.debug(

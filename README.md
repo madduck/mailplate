@@ -118,6 +118,19 @@ rule‑based profile matches).
 mailplate < draft.eml > rewritten.eml
 ```
 
+### Start from an empty draft
+
+An empty standard input is not an error. mailplate then starts from a minimal
+RFC 5322 message (a single `Content-Type: text/plain` header) and applies the
+selected profile to it:
+
+```sh
+printf '' | mailplate --profile work
+```
+
+If no profile is selected in that case, the minimal message is written
+unchanged.
+
 ### List available profiles
 
 ```sh

@@ -362,11 +362,103 @@ def test_default_profile_dirs_exclude_host_config(
 class TestMainCommand:
     """Tests for the main CLI command."""
 
-    def test_no_input(self, cli_runner: CliRunner) -> None:
-        """Running without any input returns an error."""
-        result = cli_runner.invoke(main, input="")
-        assert result.exit_code != 0
-        assert "no input" in result.output.lower()
+    def test_no_input_explicit_profile(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Empty stdin applies the profile to a minimal draft."""
+        from email import policy
+        from email.parser import BytesParser
+
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "test.mplt").write_text(SAMPLE_PROFILE, encoding="utf-8")
+        result = cli_runner.invoke(
+            main,
+            args=["--profile", "test", "--profile-dir", str(profile_dir)],
+            input="",
+        )
+        assert result.exit_code == 0
+        assert result.stderr == ""
+        parsed = BytesParser(policy=policy.default).parsebytes(result.stdout_bytes)
+        assert parsed["X-Mailer"] == "mailplate-test/1.0"
+        # The minimal draft carries no address headers, so the templates
+        # render with empty values.
+        body_payload = parsed.get_payload(decode=True)
+        assert isinstance(body_payload, bytes)
+        body = body_payload.decode("utf-8")
+        assert "Hi ," in body
+        assert "Best," in body
+
+    def test_no_input_output_to_file(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """An empty stdin is written to --output as a minimal message."""
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "test.mplt").write_text(SAMPLE_PROFILE, encoding="utf-8")
+        output = tmp_path / "out.eml"
+        result = cli_runner.invoke(
+            main,
+            args=[
+                "--profile",
+                "test",
+                "--profile-dir",
+                str(profile_dir),
+                "--output",
+                str(output),
+            ],
+            input="",
+        )
+        assert result.exit_code == 0
+        assert b"X-Mailer: mailplate-test/1.0" in output.read_bytes()
+
+    def test_no_input_no_profile_match(self, cli_runner: CliRunner) -> None:
+        """Empty stdin without a matching profile yields a minimal message."""
+        from email import policy
+        from email.parser import BytesParser
+
+        result = cli_runner.invoke(
+            main, args=["--profile-dir", "/nonexistent"], input=""
+        )
+        assert result.exit_code == 0
+        assert result.stderr == ""
+        assert result.stdout_bytes == b"Content-Type: text/plain\n\n"
+        parsed = BytesParser(policy=policy.default).parsebytes(result.stdout_bytes)
+        assert parsed.get_content_type() == "text/plain"
+        assert not parsed.is_multipart()
+
+    def test_no_input_passthrough_to_file(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Empty stdin without a matching profile writes the minimal message."""
+        output = tmp_path / "out.eml"
+        result = cli_runner.invoke(
+            main,
+            args=["--profile-dir", "/nonexistent", "--output", str(output)],
+            input="",
+        )
+        assert result.exit_code == 0
+        assert result.stdout == ""
+        assert output.read_bytes() == b"Content-Type: text/plain\n\n"
+
+    def test_no_input_catch_all(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+        """Empty stdin auto-selects a catch-all profile."""
+        from email import policy
+        from email.parser import BytesParser
+
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "catchall.mplt").write_text(
+            "[profile]\nname = Catch All\n\n[headers]\nX-Catch = yes\n",
+            encoding="utf-8",
+        )
+        result = cli_runner.invoke(
+            main, args=["--profile-dir", str(profile_dir)], input=""
+        )
+        assert result.exit_code == 0
+        parsed = BytesParser(policy=policy.default).parsebytes(result.stdout_bytes)
+        assert parsed["X-Catch"] == "yes"
+        assert parsed.get_content_type() == "text/plain"
 
     def test_auto_detect_no_profiles(self, cli_runner: CliRunner) -> None:
         """Auto-detect passes input through when no profile matches."""
