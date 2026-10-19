@@ -30,7 +30,7 @@ email:
 name = fortune cookie
 
 [signature]
-$(fortune)
+{{helper:fortune}}
 
 [helpers]
 fortune = fortune -s
@@ -77,7 +77,7 @@ Organization: NGO Inc.
 
 [signature]
 NGO Inc.
-$(get_gdpr_notice)
+{{helper:get_gdpr_notice}}
 
 [helpers]
 get_gdpr_notice = cat /srv/ngo/shared/gdpr_notice.txt
