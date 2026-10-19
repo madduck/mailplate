@@ -37,7 +37,7 @@ cd mailplate
 uv tool install .
 ```
 
-## Usage with Mutt & Co.
+## Usage with Mutt & Neomutt
 
 While `mailplate` may be useful as a CLI by itself (see "Usage as CLI" below),
 it was primarly designed to integrate with the [Mutt MUA](http://mutt.org/), and
@@ -70,7 +70,9 @@ could provide key maps to similarly invoke `mailplate --profile`:
 Here is some Lua inspiration for Neovim, to put into `after/ftplugin/mail.lua`:
 
 ```Lua
-vim.keymap.set("n", "<leader>p", "", { buffer = true, desc = "mailplate profiles" })
+vim.keymap.set("n", "<leader>p", "",
+  { buffer = true, desc = "mailplate profiles" }
+)
 
 vim.keymap.set(
   "n",
@@ -219,10 +221,14 @@ Subject:
 Message-ID:
 ```
 
+<!-- markdownlint-disable MD038 -->
+
 Any of them that is set neither by the input nor by the profile is still
 written, with an empty value (note the space after the colon: `Cc: `). This
 keeps the line numbers of a draft stable, which is what editors rely on when
 they place the cursor or apply `mailplate` from within a `:%!` filter.
+
+<!-- markdownlint-enable MD038 -->
 
 All other headers follow in the order of the input, with headers added by the
 profile at the end. Removing one of the seven headers above with
@@ -301,10 +307,14 @@ signature is separated from the body by a blank line followed by a `^-- $`
 delimiter line. If the body already ends with a blank line, no extra blank line
 is added.
 
+<!-- markdownlint-disable MD038 -->
+
 The message body always keeps at least one line, so that it is framed by a blank
 line above and below. An empty draft gains that blank line, and a draft with a
 signature gains a second one before the `-- ` delimiter. The last line of the
 output always ends with a newline, so the draft is ready for more typing.
+
+<!-- markdownlint-enable MD038 -->
 
 The lines of the `[signature]` section are copied verbatim: leading whitespace
 and blank lines are preserved exactly as written in the profile.
