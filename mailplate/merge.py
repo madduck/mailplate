@@ -135,8 +135,9 @@ def _build_new_body(
     discarded and replaced by the profile's ``[signature]`` section (if
     any).
 
-    The result ends with a newline whenever it is not empty, so that the
-    serialised message is ready for the next line of typing.
+    An empty body still occupies one blank line, so the serialised
+    message keeps a blank line after the headers and is ready for the
+    next line of typing. Any non-empty result ends with a newline.
 
     Args:
         message: The original parsed email.
@@ -188,22 +189,22 @@ def _build_new_body(
     out = "\n".join(parts)
 
     signature = rendered_sig or _draft_sig
+
+    if not out:
+        # An empty body occupies one blank line, so that the serialised
+        # output keeps a blank line after the headers and a draft can be
+        # typed straight into it. Without a signature there is no last
+        # line to terminate, so this is the payload in full.
+        return "\n" if not signature else "\n\n-- \n" + signature + "\n"
+
     if signature:
-        # The body must survive as at least one line, so that it has a
-        # blank line on either side. An empty body becomes one blank
-        # line below the header separator; anything else already ends
-        # with a blank line or must gain one.
-        if not out:
-            out = "\n\n"
-        elif not out.endswith("\n\n"):
+        # The signature is separated from the body by a blank line.
+        if not out.endswith("\n\n"):
             out += "\n" if out.endswith("\n") else "\n\n"
         out += "-- \n" + signature
 
     # Terminate the last line so the output is ready for more typing.
-    if out:
-        out += "\n"
-
-    return out
+    return out + "\n"
 
 
 def _get_body_for_merge(message: Message) -> str:
@@ -361,12 +362,8 @@ def merge_profile(
 
     # 2. Build the new body and set it as UTF-8 bytes so that the body
     #    round-trips unchanged regardless of the message's declared
-    #    charset. An empty body with no headers still needs one payload
-    #    byte so the serialiser emits the blank line after the headers;
-    #    with headers its own separator already provides that line.
+    #    charset.
     new_body = _build_new_body(result, profile, captures)
-    if not new_body and not list(result.keys()):
-        new_body = "\n"
     result.set_payload(new_body.encode("utf-8"))
 
     # 3. Strip MIME headers so the output is a plain RFC5322 message.

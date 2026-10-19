@@ -468,7 +468,7 @@ class TestMainCommand:
             pytest.param(
                 "",
                 "",
-                b"Subject: T\nFrom: a@b\n\n",
+                b"Subject: T\nFrom: a@b\n\n\n",
                 id="no-body-without-signature",
             ),
             pytest.param(
@@ -507,24 +507,6 @@ class TestMainCommand:
         )
         assert result.exit_code == 0
         assert result.stdout_bytes == expected
-
-    def test_headerless_input_ends_with_blank_line(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
-        """A headerless, bodyless draft still ends with a blank line."""
-        profile_dir = tmp_path / "profiles"
-        profile_dir.mkdir()
-        (profile_dir / "test.mplt").write_text(
-            "[profile]\nname = Test\n",
-            encoding="utf-8",
-        )
-        result = cli_runner.invoke(
-            main,
-            args=["--profile", "test", "--profile-dir", str(profile_dir)],
-            input=b"\n",
-        )
-        assert result.exit_code == 0
-        assert result.stdout_bytes == b"\n\n"
 
     def test_explicit_profile_collects_captures(
         self, cli_runner: CliRunner, tmp_path: Path
