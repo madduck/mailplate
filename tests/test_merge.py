@@ -457,8 +457,8 @@ class TestMergeProfile:
             "To",
             "Cc",
             "Bcc",
-            "Reply-To",
             "Subject",
+            "Reply-To",
             "Message-ID",
             "Return-Path",
             "Date",
@@ -473,7 +473,7 @@ class TestMergeProfile:
         profile = Profile(name="test", path=Path("test.mplt"))
         out = serialize_email(merge_profile(msg, profile))
         assert out.startswith(
-            b"From: \nTo: \nCc: \nBcc: \nReply-To: \nSubject: T\nMessage-ID: \n\n"
+            b"From: \nTo: \nCc: \nBcc: \nSubject: T\nReply-To: \nMessage-ID: \n\n"
         )
 
     def test_input_priority_headers_reordered(self) -> None:
@@ -493,8 +493,8 @@ class TestMergeProfile:
             "To",
             "Cc",
             "Bcc",
-            "Reply-To",
             "Subject",
+            "Reply-To",
             "Message-ID",
         ]
 
@@ -528,8 +528,8 @@ class TestMergeProfile:
             "To",
             "Cc",
             "Bcc",
-            "Reply-To",
             "Subject",
+            "Reply-To",
             "Message-ID",
         ]
 

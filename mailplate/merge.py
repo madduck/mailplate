@@ -43,8 +43,8 @@ _PRIORITY_HEADERS = (
     "To",
     "Cc",
     "Bcc",
-    "Reply-To",
     "Subject",
+    "Reply-To",
     "Message-ID",
 )
 
@@ -277,7 +277,7 @@ def _apply_headers(
     Apply profile headers to *message* in-place, in canonical order.
 
     The output always starts with the headers named in
-    :data:`_PRIORITY_HEADERS` (From, To, Cc, Bcc, Reply-To, Subject,
+    :data:`_PRIORITY_HEADERS` (From, To, Cc, Bcc, Subject, Reply-To, and
     Message-ID), in that order. Each of them holds the value supplied by
     the profile or, failing that, the value from the input; when neither
     provides one, the header is emitted with an empty value, so that it

@@ -36,7 +36,7 @@ written verbatim as UTF-8; B<mailplate> does not RFC 2047-encode them.
 =head1 HEADER ORDER
 
 The output always starts with the headers B<From>, B<To>, B<Cc>, B<Bcc>,
-B<Reply-To>, B<Subject>, and B<Message-ID>, in that order. Each of them
+B<Subject>, B<Reply-To>, and B<Message-ID>, in that order. Each of them
 holds the value set by the profile, or else the value from the input.
 A header that neither provides is written with an empty value, that is,
 with a single space after the colon (C<Cc: >). The remaining headers
