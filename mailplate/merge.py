@@ -171,17 +171,35 @@ def _build_new_body(
     sig_text = "\n".join(profile.signature)
 
     rendered_greeting = (
-        render_template(greeting_text, message, profile.helpers, captures=captures)
+        render_template(
+            greeting_text,
+            message,
+            profile.helpers,
+            captures=captures,
+            variables=profile.variables,
+        )
         if profile.greeting
         else ""
     )
     rendered_closing = (
-        render_template(closing_text, message, profile.helpers, captures=captures)
+        render_template(
+            closing_text,
+            message,
+            profile.helpers,
+            captures=captures,
+            variables=profile.variables,
+        )
         if profile.closing
         else ""
     )
     rendered_sig = (
-        render_template(sig_text, message, profile.helpers, captures=captures)
+        render_template(
+            sig_text,
+            message,
+            profile.helpers,
+            captures=captures,
+            variables=profile.variables,
+        )
         if profile.signature
         else ""
     )
@@ -294,10 +312,10 @@ def _apply_headers(
     empty.
 
     Header values are rendered through the template engine so that
-    placeholders like ``{{ subject }}``, ``{{ header:X-Custom }}``, or
-    ``{{ helper:get_quote }}`` are expanded. Rendering is evaluated
-    against *original* so that placeholders refer to the untouched
-    input rather than values already overridden. Existing headers are
+    placeholders like ``{{ subject }}``, ``{{ header:X-Custom }}``,
+    ``{{ helper:get_quote }}``, or ``{{ var:org }}`` are expanded.
+    Rendering is evaluated against *original* so that placeholders
+    refer to the untouched input rather than values already overridden. Existing headers are
     copied verbatim; :func:`serialize_email` is responsible for
     emitting non-ASCII content as plain UTF-8.
 
@@ -314,7 +332,13 @@ def _apply_headers(
     for name, value in profile.headers.items():
         rendered[name.lower()] = (
             name,
-            render_template(value, original, profile.helpers, captures=captures),
+            render_template(
+                value,
+                original,
+                profile.helpers,
+                captures=captures,
+                variables=profile.variables,
+            ),
         )
 
     removed = {name.lower() for name in profile.remove_headers}

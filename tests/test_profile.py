@@ -299,6 +299,55 @@ get_long_date = date '+%%d %%B %%Y'
             "get_long_date": "date '+%%d %%B %%Y'",
         }
 
+    def test_variables_section(self, tmp_path: Path) -> None:
+        """The ``[variables]`` section is parsed into a mapping."""
+        content = """[profile]
+name = Test
+
+[variables]
+date_format = %d %B %Y
+url = https://example.com/a=b
+empty =
+"""
+        path = tmp_path / "test.mplt"
+        path.write_text(content, encoding="utf-8")
+        profile = load_profile(path)
+        assert profile.variables == {
+            "date_format": "%d %B %Y",
+            "url": "https://example.com/a=b",
+            "empty": "",
+        }
+
+    def test_variables_section_absent(self, tmp_path: Path) -> None:
+        """A profile without a ``[variables]`` section has no variables."""
+        path = tmp_path / "test.mplt"
+        path.write_text("[profile]\nname = Test\n", encoding="utf-8")
+        profile = load_profile(path)
+        assert profile.variables == {}
+        assert "variables" not in profile.defined_sections
+
+    def test_variables_blank_value_is_kept(self, tmp_path: Path) -> None:
+        """A variable explicitly set to the empty string is defined."""
+        path = tmp_path / "test.mplt"
+        path.write_text("[variables]\ngreeting =\n", encoding="utf-8")
+        profile = load_profile(path)
+        assert profile.variables == {"greeting": ""}
+        assert "variables" in profile.defined_sections
+
+    def test_variables_names_with_namespaces(self, tmp_path: Path) -> None:
+        """Variable names may contain dots, dashes, and colons."""
+        path = tmp_path / "test.mplt"
+        path.write_text(
+            "[variables]\nproject.owner = alice\nteam-name = infra\nx:y = z\n",
+            encoding="utf-8",
+        )
+        profile = load_profile(path)
+        assert profile.variables == {
+            "project.owner": "alice",
+            "team-name": "infra",
+            "x:y": "z",
+        }
+
     def test_comments_and_blanks(self, tmp_path: Path) -> None:
         """Comments and blank lines are ignored."""
         content = """# This is a comment
@@ -467,6 +516,9 @@ class TestIncludes:
             "X-Shared = root\n"
             "[helpers]\n"
             "quote = root-quote\n"
+            "[variables]\n"
+            "from_root = root\n"
+            "shared = root\n"
             "[remove_headers]\n"
             "X-Root-Only\n"
             "[greeting]\n"
@@ -485,6 +537,9 @@ class TestIncludes:
             "X-Shared = foo\n"
             "[helpers]\n"
             "quote = foo-quote\n"
+            "[variables]\n"
+            "from_foo = foo\n"
+            "shared = foo\n"
             "[remove_headers]\n"
             "X-Foo-Only\n"
             "[greeting]\n"
@@ -494,7 +549,7 @@ class TestIncludes:
         bar = foo / "bar"
         bar.mkdir()
         (bar / "INCLUDE").write_text(
-            "[headers]\nX-Bar = bar\n[signature]\n",
+            "[headers]\nX-Bar = bar\n[variables]\nfrom_bar = bar\n[signature]\n",
             encoding="utf-8",
         )
         profile_path = bar / "prof.mplt"
@@ -505,6 +560,8 @@ class TestIncludes:
             "Subject = leaf\n"
             "[headers]\n"
             "X-Shared = leaf\n"
+            "[variables]\n"
+            "shared = leaf\n"
             "[remove_headers]\n"
             "X-Leaf-Only\n",
             encoding="utf-8",
@@ -526,6 +583,12 @@ class TestIncludes:
             "X-Bar": "bar",
         }
         assert profile.helpers == {"quote": "foo-quote"}
+        assert profile.variables == {
+            "from_root": "root",
+            "from_foo": "foo",
+            "shared": "leaf",
+            "from_bar": "bar",
+        }
         assert profile.remove_headers == [
             "X-Root-Only",
             "X-Foo-Only",

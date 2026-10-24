@@ -14,9 +14,13 @@ Profiles are stored as flat text files in a directory (typically
     List-Id = .*lists\\.company\\.com
     body = \\[company-internal\\]
 
+    [variables]
+    company = My Company Inc.
+    team = Platform
+
     [headers]
     X-Mailer = mailplate/1.0
-    Organization = My Company Inc.
+    Organization = {{ var:company }}
 
     [greeting]
     Hi {{ to_name | default("there") }},
@@ -97,6 +101,9 @@ class Profile:
             from a path. See :attr:`stem`.
         rules: Rules used for auto-detection (scored by weight).
         headers: Mapping of header names to their values.
+        helpers: Mapping of helper names to commands.
+        variables: Mapping of variable names to values, available to
+            templates as ``{{ var:<name> }}``.
         greeting: Lines to prepend to the body.
         closing: Lines to append before the signature.
         signature: Lines appended at the end of the message. Unlike
@@ -117,6 +124,7 @@ class Profile:
     headers: dict[str, str] = field(default_factory=dict)
     remove_headers: list[str] = field(default_factory=list)
     helpers: dict[str, str] = field(default_factory=dict)
+    variables: dict[str, str] = field(default_factory=dict)
     greeting: list[str] = field(default_factory=list)
     closing: list[str] = field(default_factory=list)
     signature: list[str] = field(default_factory=list)
@@ -242,9 +250,9 @@ def _merge_fragment(base: Profile, overlay: Profile) -> Profile:
     """
     Merge a more specific profile fragment into a less specific one.
 
-    Rules, helpers, headers, and ``remove_headers`` accumulate, with
-    ``overlay`` winning on name collisions. ``greeting``, ``closing``,
-    and ``signature`` are single-valued: the ``overlay`` definition
+    Rules, helpers, variables, headers, and ``remove_headers``
+    accumulate, with ``overlay`` winning on name collisions.
+    ``greeting``, ``closing``, and ``signature`` are single-valued: the ``overlay`` definition
     replaces the ``base`` one whenever the corresponding section is
     present in ``overlay`` (even if it is empty). ``overlay`` also
     supplies the metadata (name, path, relative path) of the result.
@@ -269,6 +277,7 @@ def _merge_fragment(base: Profile, overlay: Profile) -> Profile:
 
     base.headers.update(overlay.headers)
     base.helpers.update(overlay.helpers)
+    base.variables.update(overlay.variables)
     base.remove_headers = _dedupe([*base.remove_headers, *overlay.remove_headers])
 
     for section in ("greeting", "closing", "signature"):
@@ -420,6 +429,10 @@ def _parse_profile(text: str, path: Path, *, is_include: bool = False) -> Profil
         elif current_section == "helpers":
             name, _, cmd = stripped.partition("=")
             profile.helpers[name.strip()] = cmd.strip()
+
+        elif current_section == "variables":
+            name, _, value = stripped.partition("=")
+            profile.variables[name.strip()] = value.strip()
 
         elif current_section in ("greeting", "closing"):
             getattr(profile, current_section).append(stripped)

@@ -245,6 +245,26 @@ class TestBuildNewBody:
         result = _build_new_body(msg, profile)
         assert result == "Hi Bob,\nAlready greeted\n"
 
+    def test_variables_rendered_in_all_sections(self) -> None:
+        """Profile variables are available in greeting, closing, and sig."""
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            variables={"company": "Example Inc.", "team": "Platform"},
+            greeting=["Hi from the {{ var:team }} team,"],
+            closing=["Best from {{ var:company }},"],
+            signature=["{{ var:company }}"],
+        )
+        msg = self._make_message({}, "Body text")
+        result = _build_new_body(msg, profile)
+        assert result == (
+            "Hi from the Platform team,\n"
+            "Body text\n"
+            "Best from Example Inc.,\n"
+            "\n-- \n"
+            "Example Inc.\n"
+        )
+
     def test_idempotent_closing(self) -> None:
         """Closing is not added again if the body already ends with it."""
         profile = Profile(
@@ -395,6 +415,18 @@ class TestMergeProfile:
         assert result["X-Mailer"] == "mailplate/1.0"
         # Original headers are preserved.
         assert result["Subject"] == "Test"
+
+    def test_headers_render_variables(self) -> None:
+        """Profile variables are available in header values."""
+        msg = self._make_message({"Subject": "Test"})
+        profile = Profile(
+            name="test",
+            path=Path("test.mplt"),
+            variables={"org": "Example Inc."},
+            headers={"Organization": "{{ var:org }}"},
+        )
+        result = merge_profile(msg, profile)
+        assert result["Organization"] == "Example Inc."
 
     def test_headers_override(self) -> None:
         """Profile headers override existing ones."""

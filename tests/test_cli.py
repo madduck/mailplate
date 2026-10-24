@@ -705,6 +705,92 @@ class TestMainCommand:
         assert result.exit_code == 0
         assert b"X-Mailer: mailplate-test/1.0" in result.stdout_bytes
 
+    def test_profile_variables_rendered(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Profile variables are available in headers, greeting, and signature."""
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "test.mplt").write_text(
+            "[profile]\n"
+            "name = Test\n"
+            "[variables]\n"
+            "org = Example Inc.\n"
+            "team = Platform\n"
+            "[headers]\n"
+            "Organization = {{ var:org }}\n"
+            "[greeting]\n"
+            'Hi from the {{ var:team | default("Unknown") }} team,\n'
+            "[signature]\n"
+            "{{ var:org }}\n",
+            encoding="utf-8",
+        )
+        result = cli_runner.invoke(
+            main,
+            args=["--profile", "test", "--profile-dir", str(profile_dir)],
+            input=EMAIL_HEADERS,
+        )
+        assert result.exit_code == 0
+        assert b"Organization: Example Inc." in result.stdout_bytes
+        body = result.stdout_bytes.split(b"\n\n", 1)[1]
+        assert body.startswith(b"Hi from the Platform team,\n")
+        assert body.endswith(b"\n-- \nExample Inc.\n")
+
+    def test_variables_from_include_file(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Variables defined in an INCLUDE file are usable by profiles."""
+        profile_dir = tmp_path / "profiles"
+        nested = profile_dir / "team"
+        nested.mkdir(parents=True)
+        (profile_dir / "INCLUDE").write_text(
+            "[variables]\norg = Root Inc.\nsite = https://example.com\n",
+            encoding="utf-8",
+        )
+        (nested / "INCLUDE").write_text(
+            "[variables]\norg = Team Inc.\n",
+            encoding="utf-8",
+        )
+        (nested / "test.mplt").write_text(
+            "[profile]\n"
+            "name = Test\n"
+            "[headers]\n"
+            "Organization = {{ var:org }}\n"
+            "X-Site = {{ var:site }}\n"
+            "[signature]\n"
+            "{{ var:org }}\n",
+            encoding="utf-8",
+        )
+        result = cli_runner.invoke(
+            main,
+            args=["--profile", "team/test", "--profile-dir", str(profile_dir)],
+            input=EMAIL_HEADERS,
+        )
+        assert result.exit_code == 0
+        # The more specific INCLUDE file wins on a name collision, while
+        # variables defined further up are still available.
+        assert b"Organization: Team Inc." in result.stdout_bytes
+        assert b"X-Site: https://example.com" in result.stdout_bytes
+        assert result.stdout_bytes.endswith(b"\n-- \nTeam Inc.\n")
+
+    def test_undefined_variable_renders_empty(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """An undefined variable renders as the empty string."""
+        profile_dir = tmp_path / "profiles"
+        profile_dir.mkdir()
+        (profile_dir / "test.mplt").write_text(
+            "[profile]\nname = Test\n[headers]\nX-Org = [{{ var:missing }}]\n",
+            encoding="utf-8",
+        )
+        result = cli_runner.invoke(
+            main,
+            args=["--profile", "test", "--profile-dir", str(profile_dir)],
+            input=EMAIL_HEADERS,
+        )
+        assert result.exit_code == 0
+        assert b"X-Org: []" in result.stdout_bytes
+
     def test_output_to_file(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """The --output option writes to a file."""
         profile_dir = tmp_path / "profiles"

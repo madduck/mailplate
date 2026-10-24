@@ -32,6 +32,9 @@ available:
     section and insert its stdout.
 ``{{ rule:<name> }}``
     Named capture group from a matching rule's regexp.
+``{{ var:<name> }}``
+    Value of a variable defined in the profile's ``[variables]``
+    section.
 
 Filters can be chained with the pipe (``|``) syntax. They are applied
 from left to right, and a pipe inside a filter argument is not treated
@@ -201,8 +204,8 @@ def _get_variable(name: str, context: dict[str, Any]) -> str:
     """
     Look up a variable in the context.
 
-    Supports the ``header:<name>``, ``env:<var>``,
-    ``helper:<name>``, and ``rule:<name>`` namespaced variables.
+    Supports the ``header:<name>``, ``env:<var>``, ``helper:<name>``,
+    ``rule:<name>``, and ``var:<name>`` namespaced variables.
 
     Args:
         name: The variable name.
@@ -230,6 +233,10 @@ def _get_variable(name: str, context: dict[str, Any]) -> str:
         capture_name = name[len("rule:") :]
         captures = context.get("_captures", {})
         return captures.get(capture_name, "")  # type: ignore[no-any-return]
+    if name.startswith("var:"):
+        var_name = name[len("var:") :]
+        variables = context.get("_variables", {})
+        return variables.get(var_name, "")  # type: ignore[no-any-return]
     return str(context.get(name, ""))
 
 
@@ -238,6 +245,7 @@ def render_template(
     message: Message,
     helpers: dict[str, str] | None = None,
     captures: dict[str, str] | None = None,
+    variables: dict[str, str] | None = None,
 ) -> str:
     """
     Render a template string against a parsed email message.
@@ -248,6 +256,8 @@ def render_template(
         helpers: Optional mapping of helper names to commands.
         captures: Named capture groups from matching rules, injected
             as top-level context variables.
+        variables: Optional profile variables, available as
+            ``{{ var:<name> }}``.
 
     Returns:
         The rendered string.
@@ -280,6 +290,7 @@ def render_template(
         "_headers": all_headers,
         "_helpers": helpers or {},
         "_captures": captures or {},
+        "_variables": variables or {},
     }
 
     def _replacer(match: re.Match[str]) -> str:

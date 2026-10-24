@@ -180,6 +180,34 @@ class TestGetVariable:
         result = _get_variable("helper:say_hi", {"_helpers": helpers})
         assert result == "hello"
 
+    def test_var_variable(self) -> None:
+        """A var: variable looks up a profile-defined variable."""
+        context = {"_variables": {"company": "Example Inc."}}
+        result = _get_variable("var:company", context)
+        assert result == "Example Inc."
+
+    def test_var_variable_missing(self) -> None:
+        """An undefined var: variable returns empty string."""
+        result = _get_variable("var:missing", {"_variables": {}})
+        assert result == ""
+
+    def test_var_variable_without_context(self) -> None:
+        """A var: variable without any variables returns empty string."""
+        result = _get_variable("var:missing", {})
+        assert result == ""
+
+    def test_var_variable_with_dots_and_dashes(self) -> None:
+        """var: names may contain dots, dashes, and colons."""
+        context = {"_variables": {"project.owner": "alice", "x:y": "z"}}
+        assert _get_variable("var:project.owner", context) == "alice"
+        assert _get_variable("var:x:y", context) == "z"
+
+    def test_plain_variable_does_not_see_variables(self) -> None:
+        """Profile variables are only reachable through the var: namespace."""
+        context = {"_variables": {"company": "Example Inc."}}
+        result = _get_variable("company", context)
+        assert result == ""
+
 
 class TestRenderTemplate:
     """Tests for render_template."""
@@ -338,6 +366,38 @@ class TestRenderTemplate:
         msg = self._make_message({})
         result = render_template("{{ rule:missing }}", msg)
         assert result == ""
+
+    def test_var_placeholder(self) -> None:
+        """The var: placeholder inserts a profile variable."""
+        msg = self._make_message({})
+        result = render_template(
+            "{{ var:company }}", msg, variables={"company": "Example Inc."}
+        )
+        assert result == "Example Inc."
+
+    def test_var_placeholder_missing(self) -> None:
+        """An undefined variable renders as the empty string."""
+        msg = self._make_message({})
+        result = render_template("{{ var:missing }}", msg, variables={})
+        assert result == ""
+
+    def test_var_placeholder_with_default_filter(self) -> None:
+        """The default filter falls back when a variable is undefined."""
+        msg = self._make_message({})
+        result = render_template(
+            '{{ var:missing | default("fallback") }}', msg, variables={}
+        )
+        assert result == "fallback"
+
+    def test_var_placeholder_as_filter_argument(self) -> None:
+        """An unquoted default argument may reference a variable."""
+        msg = self._make_message({})
+        result = render_template(
+            "{{ rule:missing | default(var:company) }}",
+            msg,
+            variables={"company": "Example Inc."},
+        )
+        assert result == "Example Inc."
 
     def test_unknown_helper_returns_error(self) -> None:
         """An undefined helper returns an error message."""

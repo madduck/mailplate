@@ -189,8 +189,13 @@ name = Work
 From = .*@company\.com
 body = \[internal\]
 
+[variables]
+company = My Company Inc.
+team    = Platform
+
 [headers]
 X-Mailer = mailplate/1.0
+Organization = {{ var:company }}
 
 [greeting]
 Hi {{ to_name | default("there") }},
@@ -202,7 +207,8 @@ Best regards,
 [signature]
 {{ from_name }}
 {{ from_email }}
-My Company Inc.
+{{ var:team }}
+{{ var:company }}
 ```
 
 mailplate only handles **plain‑text** drafts — messages that contain anything
@@ -286,6 +292,29 @@ makes `{{ rule:domain }}` available in greeting, closing, signature, and header
 values. Rules are evaluated for named captures both during auto-detection and
 when a profile is selected explicitly with `--profile`.
 
+#### `[variables]`
+
+Variable definitions. Each line is `name = value`. The value is taken verbatim:
+everything after the first `=` is used, with surrounding whitespace removed, so
+a value may itself contain `=` (for example a URL with a query string). Names
+may contain dots, dashes, and colons.
+
+Each variable is available to every template in the profile as
+`{{ var:<name> }}`, that is, in `[headers]`, `[greeting]`, `[closing]`, and
+`[signature]`. An undefined variable renders as the empty string, so the
+`default` filter works as usual. Values are not themselves rendered through the
+template engine: `{{ var:<name> }}` inserts the value literally.
+
+```ini
+[variables]
+company = My Company Inc.
+site    = https://example.com/?ref=mail
+
+[signature]
+{{ var:company }}
+{{ var:site }}
+```
+
 #### `[headers]`
 
 Header definitions. Each line is `Header‑Name = value`. Existing headers with
@@ -363,12 +392,26 @@ INCLUDE files are applied in order from least to most specific — the root-leve
 itself. An `INCLUDE` file uses the same format as a profile, except that it must
 not contain a `[profile]` section.
 
-`[rules]`, `[headers]`, `[helpers]`, and `[remove_headers]` accumulate across
-all files; the more specific file wins on a name collision, and verbatim
-duplicate rules are kept only once. `[greeting]`, `[closing]`, and `[signature]`
-are single‑valued: the most specific file that defines the section wins. An
-explicitly empty section (for example a `[signature]` header with no lines)
-clears an inherited one.
+`[rules]`, `[headers]`, `[helpers]`, `[variables]`, and `[remove_headers]`
+accumulate across all files; the more specific file wins on a name collision,
+and verbatim duplicate rules are kept only once. `[greeting]`, `[closing]`, and
+`[signature]` are single‑valued: the most specific file that defines the section
+wins. An explicitly empty section (for example a `[signature]` header with no
+lines) clears an inherited one.
+
+This makes `INCLUDE` the natural place for values that several profiles share:
+
+```ini
+# $XDG_CONFIG_HOME/mailplate/profiles/INCLUDE
+[variables]
+company = My Company Inc.
+site    = https://example.com
+```
+
+Profiles in that directory and its subdirectories can then use
+`{{ var:company }}` without repeating the value. A profile (or a more specific
+`INCLUDE`) that defines the same name overrides the inherited value; variables
+defined only in the more general file remain available.
 
 `INCLUDE` files are not listed by `--list-profiles` and cannot be selected as a
 profile.
@@ -397,6 +440,7 @@ profile therefore does not keep piling on extra greeting or closing lines.
 | `{{ env:<VAR> }}`      | Value of an environment variable                  |
 | `{{ helper:<name> }}`  | Output of a helper command defined in `[helpers]` |
 | `{{ rule:<capture> }}` | Named regexp group from a matching rule           |
+| `{{ var:<name> }}`     | Value of a variable defined in `[variables]`      |
 
 ### Filters
 
