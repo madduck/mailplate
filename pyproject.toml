@@ -18,7 +18,7 @@ write_to = "mailplate/_version.py"
 fallback_version = "0.0.0"
 
 [build-system]
-requires = ["setuptools>=75.0", "setuptools-scm>=8.0,<10"]
+requires = ["setuptools>=84.2.1", "setuptools-scm>=8.0,<10"]
 build-backend = "setuptools.build_meta"
 
 [dependency-groups]
@@ -30,7 +30,7 @@ dev = [
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
   "pytest-ruff>=0.5",
-  "ruff>=0.17.1",
+  "ruff>=0.17.2",
   "setuptools-scm>=10.3.4",
   "vcs-versioning>=2.6.0",
 ]
