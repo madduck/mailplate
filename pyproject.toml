@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "A Unix-style filter for RFC5322 email drafts that rewrites them according to a profile"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = ["click>=8.0"]
+dependencies = ["click>=8.5.1"]
 
 [project.scripts]
 mailplate = "mailplate.cli:main"
@@ -25,12 +25,12 @@ build-backend = "setuptools.build_meta"
 dev = [
   "bandit>=1.9.4",
   "ipdb>=0.13.13",
-  "mypy>=2.4.0",
+  "mypy>=2.4.1",
   "pre-commit>=4.7.0",
-  "pytest>=9.1.1",
+  "pytest>=9.2.0",
   "pytest-cov>=7.1.0",
   "pytest-ruff>=0.5",
-  "ruff>=0.17.2",
+  "ruff>=0.17.6",
   "setuptools-scm>=10.3.4",
   "vcs-versioning>=2.6.0",
 ]
