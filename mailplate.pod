@@ -6,8 +6,8 @@ mailplate - apply a mailplate profile to an email draft
 
 =head1 SYNOPSIS
 
-B<mailplate> [B<-p> I<NAME>] [B<-d> I<DIR>]... [B<-o> I<FILE>] [B<-l>]
-[B<-v>]... [B<--debug>] [B<-q>] [B<-h>] [B<--version>]
+B<mailplate> [B<-p> I<NAME>] [B<--default> I<NAME>] [B<-d> I<DIR>]...
+[B<-o> I<FILE>] [B<-l>] [B<-v>]... [B<--debug>] [B<-q>] [B<-h>] [B<--version>]
 
 =head1 DESCRIPTION
 
@@ -59,6 +59,13 @@ the display name). When this option is omitted, B<mailplate>
 auto-detects the best matching profile by evaluating each profile's
 rules against the message and selecting the one with the most matches.
 A profile with no rules is a catch-all with score 0.
+
+=item B<--default> I<NAME>
+
+If no rule-based profile matches and there is no catch-all, apply
+I<NAME> instead of passing the input through unchanged. This option
+accepts the same names as B<--profile>. If B<mailplate> needs the default
+profile but cannot find it, it reports an error.
 
 =item B<-v>, B<--verbose>
 
@@ -170,9 +177,9 @@ the B<rule:> namespace. For example, the rule
   From = .*@(?P<domain>[a-z0-9.]+)
 
 makes C<{{ rule:domain }}> available in the B<[headers]>,
-B<[greeting]>, B<[closing]>, and B<[signature]> sections. Rules are
-evaluated for named captures both during auto-detection and when a
-profile is selected explicitly with B<--profile>.
+B<[greeting]>, B<[closing]>, and B<[signature]> sections. B<mailplate>
+evaluates rules for named captures during auto-detection and when it
+selects a profile by name with B<--profile> or B<--default>.
 
 =item B<[variables]>
 
@@ -392,6 +399,10 @@ System-wide profile files (found recursively).
 =item Auto-detect a profile from the input
 
   mailplate < draft.eml > rewritten.eml
+
+=item Apply the I<personal> profile if auto-detection selects none
+
+  mailplate --default personal < draft.eml > rewritten.eml
 
 =item Edit a draft in-place (via temporary output)
 

@@ -24,6 +24,7 @@ import logging
 import os
 import sys
 from email.message import Message
+from gettext import gettext as _
 from pathlib import Path
 
 import click
@@ -146,7 +147,7 @@ def _pick_best_profile(
     fallback when no rule-based profile produces a positive score; if
     several catch-alls exist, the first one wins. When neither a
     rule-based match nor a catch-all is available, ``None`` is returned
-    so the caller can pass the input through unchanged.
+    so the caller can apply a named default or pass the input through.
 
     Alongside the chosen profile, any named capture groups from the
     winning profile's matching rules are returned as a flat dict.
@@ -298,6 +299,12 @@ def _match_rule_for_scoring(rule: Rule, message: Message) -> bool:
     help="Explicit profile identifier (stem or relative path) to apply (disables auto-detection).",
 )
 @click.option(
+    "--default",
+    "default_profile_name",
+    metavar="NAME",
+    help=_("Apply NAME if auto-detection finds no match or catch-all."),
+)
+@click.option(
     "-d",
     "--profile-dir",
     "profile_dirs",
@@ -321,6 +328,7 @@ def _match_rule_for_scoring(rule: Rule, message: Message) -> bool:
 )
 def main(
     profile_name: str | None,
+    default_profile_name: str | None,
     profile_dirs: tuple[Path, ...],
     list_profiles: bool,
     output: Path | None,
@@ -333,8 +341,9 @@ def main(
 
     Reads the draft from stdin, transforms it according to the selected
     profile, and writes the result to stdout (or to the file specified
-    with --output). An empty stdin is not an error: the profile is then
-    applied to a minimal message created from scratch.
+    with --output). If auto-detection selects no profile, --default can
+    name one to apply. An empty stdin is not an error: the profile is
+    then applied to a minimal message created from scratch.
     """
     level = _resolve_log_level(verbose, debug, quiet)
     if level is not None:
@@ -366,25 +375,31 @@ def main(
         log.debug("stdin is empty; starting from a minimal draft")
         message = _default_draft()
 
-    # Determine which profile to apply.
+    captures: dict[str, str]
+    selected_name: str | None
     if profile_name:
-        # Explicit profile name.
-        profile = _find_profile_by_name(profiles, profile_name)
-        if profile is None:
-            click.echo(f"Error: profile {profile_name!r} not found.", err=True)
-            sys.exit(1)
-        log.debug("explicit profile: %r (%s)", profile.stem, profile.name)
-        # The profile is selected explicitly, but its rules are still
-        # evaluated so that named captures can be used in templates.
-        captures = _collect_captures(profile, message)
+        profile, captures = None, {}
+        selected_name = profile_name
     else:
-        # Auto-detect the best profile.
         profile, captures = _pick_best_profile(profiles, message)
+        selected_name = default_profile_name if profile is None else None
+
+    if selected_name is not None:
+        profile = _find_profile_by_name(profiles, selected_name)
+        if profile is None:
+            raise click.ClickException(
+                _("profile {name!r} not found.").format(name=selected_name)
+            )
+        if profile_name:
+            log.debug("explicit profile: %r (%s)", profile.stem, profile.name)
+        else:
+            log.info("using default profile %r (%s)", profile.stem, profile.name)
+        # Evaluate rules for named captures even when selecting by name.
+        captures = _collect_captures(profile, message)
 
     if profile is None:
-        # No profile matched (auto-detect) or none was specified;
-        # pass the input through verbatim. There is nothing to pass on
-        # when stdin was empty, so the minimal draft is written instead.
+        # Pass the input through verbatim if no profile was selected.
+        # If stdin was empty, write the minimal draft instead.
         log.debug("no profile selected — passing input through unchanged")
         passthrough = raw_data or serialize_email(message)
         if output:

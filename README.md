@@ -126,6 +126,15 @@ rule‑based profile matches).
 mailplate < draft.eml > rewritten.eml
 ```
 
+If no rule-based profile matches and there is no catch-all, mailplate passes the
+input through unchanged. Use `--default NAME` to apply a profile instead.
+`--default` accepts the same names as `--profile`. If mailplate needs the
+default profile but cannot find it, it reports an error.
+
+```sh
+mailplate --default personal < draft.eml > rewritten.eml
+```
+
 ### Start from an empty draft
 
 An empty standard input is not an error. mailplate then starts from a minimal
@@ -289,8 +298,8 @@ From = .*@(?P<domain>[a-z0-9.]+)
 ```
 
 makes `{{ rule:domain }}` available in greeting, closing, signature, and header
-values. Rules are evaluated for named captures both during auto-detection and
-when a profile is selected explicitly with `--profile`.
+values. mailplate evaluates rules for named captures during auto-detection and
+when it selects a profile by name with `--profile` or `--default`.
 
 #### `[variables]`
 

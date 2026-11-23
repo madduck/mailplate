@@ -485,6 +485,73 @@ class TestMainCommand:
             assert parsed["Subject"] == "Test"
             assert "Hi" not in result.stdout_bytes.decode()
 
+    @pytest.mark.parametrize("name", ["team/fallback", "Fallback Profile"])
+    def test_default_profile_used_when_no_match(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        name: str,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """The default profile applies and supplies captures despite its zero score."""
+        nested = tmp_path / "team"
+        nested.mkdir()
+        (nested / "fallback.mplt").write_text(
+            "[profile]\nname = Fallback Profile\n\n"
+            "[rules]\nSubject:0 = (?P<subject>Test)\n\n"
+            "[headers]\nX-Fallback = {{ rule:subject }}\n",
+            encoding="utf-8",
+        )
+        with caplog.at_level(logging.INFO, logger="mailplate.cli"):
+            result = cli_runner.invoke(
+                main,
+                args=["--default", name, "--profile-dir", str(tmp_path)],
+                input=EMAIL_HEADERS,
+            )
+        assert result.exit_code == 0
+        assert parse_email(result.stdout_bytes)["X-Fallback"] == "Test"
+        assert "using default profile 'team/fallback' (Fallback Profile)" in caplog.text
+
+    @pytest.mark.parametrize(
+        ("rules", "options"),
+        [
+            pytest.param("[rules]\nSubject = Test\n", [], id="rule-match"),
+            pytest.param("", [], id="catch-all"),
+            pytest.param(
+                "[rules]\nSubject = Other\n", ["--profile", "preferred"], id="explicit"
+            ),
+        ],
+    )
+    def test_default_profile_does_not_override_selection(
+        self, cli_runner: CliRunner, tmp_path: Path, rules: str, options: list[str]
+    ) -> None:
+        """An explicit, matching, or catch-all profile takes precedence."""
+        (tmp_path / "preferred.mplt").write_text(
+            f"[profile]\nname = Preferred\n\n{rules}\n[headers]\nX-Profile = preferred\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "fallback.mplt").write_text(
+            "[profile]\nname = Fallback\n\n[rules]\nSubject = Other\n\n"
+            "[headers]\nX-Profile = fallback\n",
+            encoding="utf-8",
+        )
+        result = cli_runner.invoke(
+            main,
+            args=[*options, "--default", "fallback", "--profile-dir", str(tmp_path)],
+            input=EMAIL_HEADERS,
+        )
+        assert result.exit_code == 0
+        assert parse_email(result.stdout_bytes)["X-Profile"] == "preferred"
+
+    def test_default_profile_not_found(self, cli_runner: CliRunner) -> None:
+        """An unknown default profile reports an error when needed."""
+        result = cli_runner.invoke(
+            main, args=["--default", "missing"], input=EMAIL_HEADERS
+        )
+        assert result.exit_code == 1
+        assert result.stderr == "Error: profile 'missing' not found.\n"
+        assert result.stdout_bytes == b""
+
     def test_explicit_profile_not_found(self, cli_runner: CliRunner) -> None:
         """Specifying a non-existent profile returns an error."""
         result = cli_runner.invoke(
